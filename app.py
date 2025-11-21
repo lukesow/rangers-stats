@@ -44,6 +44,42 @@ st.markdown("""
         font-weight: bold;
         width: 100%;
     }
+    div.stButton > button:hover {
+        background-color: #b01319;
+        color: white;
+    }
+
+    /* Custom Radio Button (Toggle Switch Look) */
+    div[role="radiogroup"] {
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 5px;
+        border-radius: 10px;
+    }
+    div[role="radiogroup"] label > div:first-child {
+        display: none; /* Hides the radio circle */
+    }
+    div[role="radiogroup"] label {
+        margin-right: 0px !important;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid transparent;
+        transition: all 0.3s;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    /* Unselected State */
+    div[role="radiogroup"] label[data-baseweb="radio"] {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    /* Selected State - We trick this by targeting the checked div if possible, 
+       but Streamlit CSS is tricky. We rely on the fact that the sidebar bg is blue.
+       We make the 'selected' item look like a white card or a darker blue button. */
+    div[role="radiogroup"] label[data-baseweb="radio"] > div {
+        color: white !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -57,7 +93,6 @@ def load_data():
         df = pd.read_csv(filename)
         
         # 1. Create Date Object
-        # Assumes columns Day, Month, Year exist
         df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
         df['Date'] = pd.to_datetime(df['DateStr'], errors='coerce')
         
@@ -179,8 +214,9 @@ def get_h2h_chem(p1, p2, df):
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=100)
 st.sidebar.title("IBROX ANALYTICS")
 
-# --- MODE SELECTION ---
-mode = st.sidebar.radio("Select Mode", ["Single Player", "Head-to-Head"], index=0)
+# --- MODE SELECTION (STYLED) ---
+# Using horizontal radio button which we styled with CSS above to look like a toggle
+mode = st.sidebar.radio("Select Mode", ["Single Player", "Head-to-Head"], index=0, horizontal=True)
 st.sidebar.markdown("---")
 
 # --- PLAYER DATA PREP ---
@@ -220,26 +256,26 @@ if mode == "Single Player":
         qual = summary_df[summary_df['Total'] >= 5]
         sorted_players = qual.sort_values('WinRate', ascending=False)['Player'].tolist()
 
-    # --- SESSION STATE (Random Button) ---
-    if 'selected_player_name' not in st.session_state:
-        st.session_state['selected_player_name'] = sorted_players[0]
+    # --- SESSION STATE & CALLBACKS ---
+    # This is the FIX for the random button.
+    # We define a function that updates the 'player_selectbox' key directly.
+    def pick_random_player():
+        new_player = random.choice(sorted_players)
+        st.session_state.player_selectbox = new_player
 
-    # If list changes (e.g. filter change), ensure selection is valid
-    if st.session_state['selected_player_name'] not in sorted_players:
-        st.session_state['selected_player_name'] = sorted_players[0]
+    # Initialize session state if needed
+    if 'player_selectbox' not in st.session_state:
+        st.session_state.player_selectbox = sorted_players[0]
 
-    if st.sidebar.button("🔀 Pick Random Player"):
-        st.session_state['selected_player_name'] = random.choice(sorted_players)
+    # Button with on_click callback
+    st.sidebar.button("🔀 Pick Random Player", on_click=pick_random_player)
 
-    def update_player():
-        st.session_state['selected_player_name'] = st.session_state.player_selectbox
-
+    # Selectbox bound to the same key
     selected_player = st.sidebar.selectbox(
         "Select Player",
         options=sorted_players,
-        key='player_selectbox',
-        index=sorted_players.index(st.session_state['selected_player_name']),
-        on_change=update_player
+        key='player_selectbox' 
+        # Note: No 'index' needed here because 'key' takes precedence
     )
 
     # --- DISPLAY ---
@@ -348,7 +384,7 @@ else:
         s1 = get_player_stats(p1, df_filtered)
         s2 = get_player_stats(p2, df_filtered)
         
-        st.title("⚔️ HEAD-TO-HEAD")
+        st.title("HEAD-TO-HEAD")
         st.markdown(f"**{p1}** vs **{p2}**")
 
         if s1 and s2:
