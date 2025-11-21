@@ -44,7 +44,12 @@ def load_data():
         # 2. Standardize Results (W/D/L)
         df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
         
-        # 3. Clean Player Names
+        # 3. FIX: Force Score to String to prevent Date Auto-formatting
+        # This ensures pandas treats '3-1' as text, not '3rd January'
+        if 'Score (Rangers First)' in df.columns:
+            df['Score (Rangers First)'] = df['Score (Rangers First)'].astype(str)
+
+        # 4. Clean Player Names
         cols_to_clean = [f'R{i}' for i in range(1, 23)]
         for col in cols_to_clean:
             if col in df.columns:
@@ -58,7 +63,7 @@ def load_data():
         return str(e)
 
 # ==========================================
-# 3. ERROR HANDLING (FIXED)
+# 3. ERROR HANDLING
 # ==========================================
 data_response = load_data()
 
@@ -199,7 +204,17 @@ if stats:
         display_cols = ['Date', 'Opponent', 'Competition', 'Score (Rangers First)', 'Win/Lose/Draw', 'Role']
         # Ensure columns exist before displaying
         valid_cols = [c for c in display_cols if c in stats['df'].columns]
-        st.dataframe(stats['df'][valid_cols], use_container_width=True, hide_index=True)
+        
+        # FIX: Configuration applied to enforce TextColumn for Score and Date format
+        st.dataframe(
+            stats['df'][valid_cols], 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                "Score (Rangers First)": st.column_config.TextColumn("Score"),
+                "Date": st.column_config.DateColumn("Match Date", format="DD/MM/YYYY")
+            }
+        )
 
     with tab3:
         st.subheader("Chemistry (Starts Together)")
