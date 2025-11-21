@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+import random
 
 # ==========================================
 # 1. CONFIGURATION & THEME
@@ -19,7 +20,15 @@ st.markdown("""
     <style>
     .stApp { background-color: #f4f4f4; }
     section[data-testid="stSidebar"] { background-color: #1b458f; color: white; }
-    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] .stSelectbox label { color: white !important; }
+    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] .stSelectbox label, section[data-testid="stSidebar"] .stButton button { color: white !important; }
+    /* Style the random button */
+    div.stButton > button:first-child {
+        background-color: #d61a21;
+        color: white;
+        border: none;
+        width: 100%;
+        font-weight: bold;
+    }
     div[data-testid="metric-container"] { background-color: white; border-left: 5px solid #d61a21; padding: 15px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); border-radius: 5px; }
     h1, h2, h3 { color: #1b458f; font-family: 'Helvetica Neue', sans-serif; font-weight: 800; }
     .stDataFrame { border: 1px solid #1b458f; }
@@ -32,20 +41,17 @@ st.markdown("""
 @st.cache_data
 def load_data():
     filename = "rangers_data.csv"
-    
     try:
-        # Load the CSV
         df = pd.read_csv(filename)
         
-        # 1. Create Date Column
+        # 1. Create Date
         df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
         df['Date'] = pd.to_datetime(df['DateStr'], errors='coerce')
         
-        # 2. Standardize Results (W/D/L)
+        # 2. Result Code
         df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
         
-        # 3. FIX: Force Score to String to prevent Date Auto-formatting
-        # This ensures pandas treats '3-1' as text, not '3rd January'
+        # 3. Fix Score (Force String)
         if 'Score (Rangers First)' in df.columns:
             df['Score (Rangers First)'] = df['Score (Rangers First)'].astype(str)
 
@@ -56,27 +62,41 @@ def load_data():
                 df[col] = df[col].astype(str).str.strip().replace('nan', None)
                 
         return df.sort_values('Date', ascending=False)
-        
-    except FileNotFoundError:
-        return "FILE_NOT_FOUND"
     except Exception as e:
         return str(e)
 
-# ==========================================
-# 3. ERROR HANDLING
-# ==========================================
+# Load Data
 data_response = load_data()
-
-# We check if it's a string (Error) or a DataFrame (Success)
 if isinstance(data_response, str):
-    if data_response == "FILE_NOT_FOUND":
-        st.error("⚠️ File not found! Ensure 'rangers_data.csv' is in the GitHub repository.")
-    else:
-        st.error(f"⚠️ Error reading CSV: {data_response}")
+    st.error(f"⚠️ Error: {data_response}")
     st.stop()
-else:
-    # Success!
-    df = data_response
+df = data_response
+
+# ==========================================
+# 3. GLOBAL STATS PRE-CALC (For Sorting)
+# ==========================================
+@st.cache_data
+def get_player_summary(df):
+    # Get all unique players
+    all_p = pd.unique(df[[f'R{i}' for i in range(1, 23)]].values.ravel('K'))
+    players = [p for p in all_p if p and str(p).lower() != 'nan' and str(p).lower() != 'none']
+    
+    summary_list = []
+    
+    # Calculate basic stats for sorting
+    # Note: We do a quick calc here just for the list sorting
+    for p in players:
+        mask = df[[f'R{i}' for i in range(1, 23)]].isin([p]).any(axis=1)
+        p_games = df[mask]
+        total = len(p_games)
+        if total > 0:
+            wins = len(p_games[p_games['ResultCode'] == 'W'])
+            win_rate = (wins / total) * 100
+            summary_list.append({'Player': p, 'Total': total, 'WinRate': win_rate})
+            
+    return pd.DataFrame(summary_list)
+
+summary_df = get_player_summary(df)
 
 # ==========================================
 # 4. ANALYTICS ENGINE
@@ -92,8 +112,7 @@ def get_player_stats(player_name, df):
         return None
 
     def get_role(row):
-        if player_name in row[starter_cols].values:
-            return 'Starter'
+        if player_name in row[starter_cols].values: return 'Starter'
         return 'Sub'
 
     player_matches['Role'] = player_matches.apply(get_role, axis=1)
@@ -110,28 +129,65 @@ def get_player_stats(player_name, df):
     last_5 = player_matches.sort_values('Date', ascending=False).head(5)['ResultCode'].tolist()
 
     return {
-        'df': player_matches,
-        'starts': starts,
-        'subs': subs,
-        'total': total,
+        'df': player_matches, 'starts': starts, 'subs': subs, 'total': total,
         'record': {'W': wins, 'D': draws, 'L': losses},
-        'win_rate': win_rate,
-        'last_5': last_5
+        'win_rate': win_rate, 'last_5': last_5
     }
 
 # ==========================================
-# 5. UI & DASHBOARD
+# 5. UI & SIDEBAR LOGIC
 # ==========================================
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=100)
 st.sidebar.title("IBROX ANALYTICS")
+
+# --- SORTING OPTIONS ---
+sort_option = st.sidebar.selectbox(
+    "Sort Players By:",
+    ["A-Z (Alphabetical)", "Most Appearances", "Fewest Appearances", "Highest Win %", "Lowest Win %"]
+)
+
+# Apply Sorting to the List
+if sort_option == "A-Z (Alphabetical)":
+    sorted_players = sorted(summary_df['Player'].tolist())
+elif sort_option == "Most Appearances":
+    sorted_players = summary_df.sort_values('Total', ascending=False)['Player'].tolist()
+elif sort_option == "Fewest Appearances":
+    sorted_players = summary_df.sort_values('Total', ascending=True)['Player'].tolist()
+elif sort_option == "Highest Win %":
+    # Filter out players with very few games to avoid 100% win rate from 1 game skewing top results
+    qualified = summary_df[summary_df['Total'] >= 5] 
+    sorted_players = qualified.sort_values('WinRate', ascending=False)['Player'].tolist()
+else: # Lowest Win %
+    qualified = summary_df[summary_df['Total'] >= 5]
+    sorted_players = qualified.sort_values('WinRate', ascending=True)['Player'].tolist()
+
+# --- SESSION STATE HANDLING ---
+# Initialize if not set
+if 'selected_player_name' not in st.session_state:
+    st.session_state['selected_player_name'] = sorted_players[0]
+
+# Ensure the current selection is actually in the sorted list (handles switching lists)
+if st.session_state['selected_player_name'] not in sorted_players:
+    st.session_state['selected_player_name'] = sorted_players[0]
+
+# Random Button
+if st.sidebar.button("🔀 Pick Random Player"):
+    random_player = random.choice(sorted_players)
+    st.session_state['selected_player_name'] = random_player
+
+# The Dropdown (Controlled by Session State)
+def update_player():
+    st.session_state['selected_player_name'] = st.session_state.player_selectbox
+
+selected_player = st.sidebar.selectbox(
+    "Select Player",
+    options=sorted_players,
+    key='player_selectbox', # Key binds it to session state
+    index=sorted_players.index(st.session_state['selected_player_name']),
+    on_change=update_player
+)
+
 st.sidebar.markdown("---")
-
-# Get Players
-all_players = pd.unique(df[[f'R{i}' for i in range(1, 23)]].values.ravel('K'))
-all_players = [p for p in all_players if p and str(p).lower() != 'nan' and str(p).lower() != 'none']
-all_players.sort()
-
-selected_player = st.sidebar.selectbox("Select Player", all_players)
 
 # Filters
 seasons = ['All Time'] + sorted(df['Tag Season'].unique().tolist(), reverse=True)
@@ -150,7 +206,7 @@ if selected_comp != 'All Competitions':
 # Display Stats
 stats = get_player_stats(selected_player, df_filtered)
 
-if stats:
+if stats and stats['total'] > 0:
     c1, c2 = st.columns([3,1])
     with c1:
         st.title(f"{selected_player.upper()}")
@@ -202,10 +258,8 @@ if stats:
 
     with tab2:
         display_cols = ['Date', 'Opponent', 'Competition', 'Score (Rangers First)', 'Win/Lose/Draw', 'Role']
-        # Ensure columns exist before displaying
         valid_cols = [c for c in display_cols if c in stats['df'].columns]
         
-        # FIX: Configuration applied to enforce TextColumn for Score and Date format
         st.dataframe(
             stats['df'][valid_cols], 
             use_container_width=True, 
@@ -235,4 +289,4 @@ if stats:
             st.info("Player hasn't started enough games to calculate chemistry.")
 
 else:
-    st.warning("No matches found for this player in this selection.")
+    st.warning("No data found for this player in the selected filters.")
