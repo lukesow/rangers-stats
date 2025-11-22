@@ -129,8 +129,15 @@ def save_new_match(new_data):
 
 def check_password():
     """Returns `True` if the user had the correct password."""
+    
+    # Validates that the secret exists in configuration first
+    if "admin_password" not in st.secrets:
+        st.error("🚨 Admin password is not configured in Streamlit Secrets!")
+        return False
+
     def password_entered():
-        if st.session_state["password"] == "rangers1872": # Change this password as needed
+        # Compare input to the secure variable
+        if st.session_state["password"] == st.secrets["admin_password"]:
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # don't store password
         else:
