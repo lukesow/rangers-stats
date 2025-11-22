@@ -17,11 +17,11 @@ st.set_page_config(
 )
 
 # --- LION RAMPANT BACKGROUND SVG ---
-# A simplified SVG pattern of a rampant lion style shape
+# Changed fill to a subtle light blue (#add8e6) with very low opacity
 lion_svg = """
-<svg width='60' height='60' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+<svg width='80' height='80' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
 <path d='M30,70 Q40,60 35,50 Q45,40 40,30 Q50,20 60,30 Q70,20 80,30 Q70,50 60,60 Q70,70 60,80 Q50,90 40,80 Q30,90 20,80 Q30,70 30,70 Z' 
-      fill='#ffffff' opacity='0.07'/>
+      fill='#add8e6' opacity='0.05'/>
 </svg>
 """
 lion_b64 = base64.b64encode(lion_svg.encode('utf-8')).decode("utf-8")
@@ -32,7 +32,7 @@ st.markdown(f"""
     <style>
     .stApp {{ background-color: #f4f4f4; }}
     
-    /* SIDEBAR STYLING - RANGERS 03/04 KIT STYLE */
+    /* SIDEBAR STYLING */
     section[data-testid="stSidebar"] {{ 
         background-color: #1b458f; 
         background-image: {sidebar_bg_img};
@@ -49,23 +49,47 @@ st.markdown(f"""
     section[data-testid="stSidebar"] p,
     section[data-testid="stSidebar"] .stRadio label {{ color: white !important; }}
     
+    /* CENTERING LOGO & TITLE */
+    .sidebar-header {{
+        text-align: center;
+        margin-bottom: 20px;
+    }}
+    .sidebar-header img {{
+        display: block;
+        margin: 0 auto;
+    }}
+    
     /* NAVIGATION BUTTONS */
-    section[data-testid="stSidebar"] .stButton button {{
-        background-color: transparent;
-        color: white;
-        border: 1px solid white;
+    div.stButton > button {{
         width: 100%;
-        font-weight: bold;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background-color: rgba(255, 255, 255, 0.05);
+        color: white;
+        margin-bottom: 5px;
         transition: all 0.3s ease;
     }}
     
-    /* HOVER STATE FIX - White Button, Blue Text */
-    section[data-testid="stSidebar"] .stButton button:hover {{
+    /* Hover State - White Button, Blue Text */
+    div.stButton > button:hover {{
         background-color: white !important;
         color: #1b458f !important;
-        border: 1px solid white !important;
+        border-color: white !important;
+        transform: scale(1.02);
     }}
     
+    /* Selected State Indicator (Optional visual cue) */
+    .nav-active {{
+        border-left: 4px solid #d61a21 !important;
+    }}
+
+    /* ADMIN LOGIN AREA styling */
+    .admin-login-container {{
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }}
+
     /* Metric Cards */
     div[data-testid="metric-container"] {{ 
         background-color: white; 
@@ -78,19 +102,12 @@ st.markdown(f"""
     /* Headers */
     h1, h2, h3 {{ color: #1b458f; font-family: 'Helvetica Neue', sans-serif; font-weight: 800; }}
     
-    /* Admin Area */
+    /* Admin Box */
     .admin-box {{
         border: 2px solid #d61a21;
         padding: 20px;
         border-radius: 10px;
         background-color: white;
-    }}
-    
-    /* Subtle Admin Login at Bottom */
-    .admin-login-area {{
-        margin-top: 50px;
-        border-top: 1px solid rgba(255,255,255,0.3);
-        padding-top: 20px;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -158,30 +175,35 @@ def check_password():
 # 3. INIT STATE
 # ==========================================
 if 'page' not in st.session_state: st.session_state['page'] = 'single'
-# Temp storage for new players added during session
 if 'temp_new_players' not in st.session_state: st.session_state['temp_new_players'] = []
 
 # ==========================================
 # 4. SIDEBAR
 # ==========================================
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=100)
-st.sidebar.title("IBROX ANALYTICS")
+# Header Container
+with st.sidebar.container():
+    st.markdown("<div class='sidebar-header'>", unsafe_allow_html=True)
+    st.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=100)
+    st.markdown("<h2>IBROX ANALYTICS</h2>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Navigation Container
 st.sidebar.markdown("### 🧭 MENU")
+if st.sidebar.button("👤 Single Player Analysis"): 
+    st.session_state['page'] = 'single'
+if st.sidebar.button("⚔️ Head-to-Head Stats"): 
+    st.session_state['page'] = 'h2h'
 
-c_nav1, c_nav2 = st.sidebar.columns(2)
-if c_nav1.button("👤 Single"): st.session_state['page'] = 'single'
-if c_nav2.button("⚔️ H2H"): st.session_state['page'] = 'h2h'
+# Spacer logic to push Admin to bottom (using empty lines and a visual divider)
+st.sidebar.markdown("<br>" * 8, unsafe_allow_html=True)
+st.sidebar.markdown("<div class='admin-login-container'></div>", unsafe_allow_html=True)
 
-# Spacer to push Admin to bottom
-st.sidebar.markdown("<br>" * 5, unsafe_allow_html=True)
-st.sidebar.markdown("---")
-
-# Subtle Admin Button
-col_adm1, col_adm2 = st.sidebar.columns([1, 4])
-with col_adm1:
-    st.write("🔒")
-with col_adm2:
-    if st.button("Admin Panel", key="btn_admin_login"):
+# Bottom Admin Button
+c_lock, c_btn = st.sidebar.columns([1, 5])
+with c_lock:
+    st.markdown("🔒")
+with c_btn:
+    if st.button("Admin Panel", key="adm_btn"):
         st.session_state['page'] = 'admin'
 
 # ==========================================
@@ -191,7 +213,6 @@ df = load_data()
 players_list = []
 if not df.empty:
     all_p = pd.unique(df[[f'R{i}' for i in range(1, 23)]].values.ravel('K'))
-    # Combine CSV players with any newly added in session
     combined = list(set(list(all_p) + st.session_state['temp_new_players']))
     players_list = [p for p in combined if p and str(p).lower() != 'nan' and str(p).lower() != 'none']
     players_list.sort()
@@ -205,6 +226,7 @@ if st.session_state['page'] == 'single':
     if not players_list:
         st.warning("Database empty.")
     else:
+        st.sidebar.markdown("---")
         st.sidebar.markdown("### 🔍 FILTERS")
         seasons = ['All Time'] + sorted(df['Tag Season'].unique().tolist(), reverse=True)
         s_sea = st.sidebar.selectbox("Season", seasons)
@@ -218,7 +240,7 @@ if st.session_state['page'] == 'single':
         # Random & Select
         if 'ps' not in st.session_state: st.session_state.ps = players_list[0]
         def rand_p(): st.session_state.ps = random.choice(players_list)
-        st.sidebar.button("🔀 Random Player", on_click=rand_p)
+        st.sidebar.button("🔀 Pick Random Player", on_click=rand_p)
         
         sel_p = st.sidebar.selectbox("Select Player", players_list, key='ps')
         
@@ -289,6 +311,7 @@ elif st.session_state['page'] == 'h2h':
     if len(players_list) < 2:
         st.warning("Need more players.")
     else:
+        st.sidebar.markdown("---")
         st.sidebar.markdown("### 👥 PLAYERS")
         p1 = st.sidebar.selectbox("Player 1", players_list, index=0)
         p2 = st.sidebar.selectbox("Player 2", players_list, index=1)
@@ -337,16 +360,45 @@ elif st.session_state['page'] == 'admin':
             st.markdown("<div class='admin-box'>", unsafe_allow_html=True)
             st.subheader("New Match Record")
             
-            # Top Metadata - MIMICKING CSV ORDER
+            # --- AUTOCOMPLETE HELPERS ---
+            # Get unique existing values for autocomplete
+            ex_opps = sorted(df['Opponent'].unique().tolist()) if not df.empty else []
+            ex_comps = sorted(df['Competition'].unique().tolist()) if not df.empty else []
+            ex_seas = sorted(df['Tag Season'].unique().tolist()) if not df.empty else []
+
             c1, c2, c3 = st.columns(3)
+            
+            # DATE
             inp_date = c1.date_input("Date", datetime.today())
-            inp_opp = c2.text_input("Opponent")
-            inp_comp = c3.text_input("Competition", "Premiership")
+            
+            # OPPONENT (Select or Add New)
+            opp_choice = c2.selectbox("Opponent", ["Add New..."] + ex_opps, index=1 if ex_opps else 0)
+            if opp_choice == "Add New...":
+                inp_opp = c2.text_input("Type New Opponent", placeholder="e.g. Celtic")
+            else:
+                inp_opp = opp_choice
+            
+            # COMPETITION (Select or Add New)
+            comp_choice = c3.selectbox("Competition", ["Add New..."] + ex_comps, index=1 if ex_comps else 0)
+            if comp_choice == "Add New...":
+                inp_comp = c3.text_input("Type New Competition", placeholder="e.g. Scottish Cup")
+            else:
+                inp_comp = comp_choice
             
             c4, c5, c6 = st.columns(3)
+            
+            # SCORE
             inp_score = c4.text_input("Score (Rangers First)", "0-0")
+            
+            # RESULT
             inp_res = c5.selectbox("Win/Lose/Draw", ["Win", "Draw", "Lose"])
-            inp_sea = c6.text_input("Season Tag", "2024/2025")
+            
+            # SEASON (Select or Add New)
+            sea_choice = c6.selectbox("Season Tag", ["Add New..."] + ex_seas, index=1 if ex_seas else 0)
+            if sea_choice == "Add New...":
+                inp_sea = c6.text_input("Type New Season", placeholder="e.g. 2025/2026")
+            else:
+                inp_sea = sea_choice
             
             st.markdown("---")
             
@@ -366,9 +418,7 @@ elif st.session_state['page'] == 'admin':
             st.markdown("#### 📋 Team Sheet (CSV Order)")
             
             # R1 to R22 Inputs
-            # We split into 2 columns for visual sanity: Starters (1-11) and Subs (12-22)
             col_starts, col_subs = st.columns(2)
-            
             team_selections = {}
             
             with col_starts:
@@ -385,7 +435,6 @@ elif st.session_state['page'] == 'admin':
                 if not inp_opp or not inp_score:
                     st.error("Missing Opponent or Score.")
                 else:
-                    # Build Row
                     row = {
                         'Day': inp_date.day,
                         'Month': inp_date.month,
@@ -396,18 +445,15 @@ elif st.session_state['page'] == 'admin':
                         'Win/Lose/Draw': inp_res,
                         'Tag Season': inp_sea
                     }
-                    # Add players
                     for k, v in team_selections.items():
                         row[k] = v if v != "" else None
                         
-                    # Save
                     df_curr = pd.read_csv(DATA_FILE)
                     df_new = pd.DataFrame([row])
                     df_final = pd.concat([df_curr, df_new], ignore_index=True)
                     
                     if save_data(df_final):
                         st.success(f"Match vs {inp_opp} saved! Data refreshed.")
-                        # Clear temp players as they are now in CSV if used
                         st.session_state['temp_new_players'] = []
                         
             st.markdown("</div>", unsafe_allow_html=True)
@@ -420,7 +466,6 @@ elif st.session_state['page'] == 'admin':
                 df['MatchLabel'] = df['Date'].dt.strftime('%Y-%m-%d') + " vs " + df['Opponent']
                 mtch = st.selectbox("Select Match", df['MatchLabel'].unique())
                 if mtch:
-                    # Get original row
                     orig = df[df['MatchLabel'] == mtch].iloc[0]
                     
                     e1, e2 = st.columns(2)
@@ -430,9 +475,7 @@ elif st.session_state['page'] == 'admin':
                     st.info("Editing supports Date/Opponent correction. For full team edits, currently standard practice is to delete from CSV or ensure strict matching. This basic edit mode updates the main details.")
                     
                     if st.button("Update Metadata"):
-                        # Find index in raw CSV
                         raw = pd.read_csv(DATA_FILE)
-                        # Match strictly on Day/Month/Year/Opponent
                         mask = (raw['Day']==orig['Day']) & (raw['Month']==orig['Month']) & (raw['Year']==orig['Year']) & (raw['Opponent']==orig['Opponent'])
                         if mask.any():
                             idx = raw[mask].index[0]
