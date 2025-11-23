@@ -22,19 +22,18 @@ RANGERS_CREST_URL = "https://i-p.rmcdn.net/64f5b85fe6a06b0052c2bc23/4535847/imag
 def generate_professional_bg_svg():
     """
     Generates a professional, subtle abstract pattern (Bokeh/Particles).
-    Using circles is safer than complex paths for a clean look.
+    Uses an ISOLATED random instance so it doesn't break the app's global random state.
     """
-    random.seed(55) # Fixed seed ensures the pattern doesn't 'dance' on reload
-    w, h = 400, 400 # Tile size
+    # FIX: Use a local Random instance instead of global random.seed()
+    rng = random.Random(55) 
+    w, h = 400, 400 
     
     svg_elements = []
-    
-    # Generate 40 subtle particles
     for _ in range(40):
-        cx = random.randint(0, w)
-        cy = random.randint(0, h)
-        r = random.randint(2, 15) # Varying sizes
-        opacity = random.uniform(0.03, 0.08) # Very low opacity for subtlety
+        cx = rng.randint(0, w)
+        cy = rng.randint(0, h)
+        r = rng.randint(2, 15)
+        opacity = rng.uniform(0.03, 0.08)
         
         svg_elements.append(
             f"<circle cx='{cx}' cy='{cy}' r='{r}' fill='white' opacity='{opacity}'/>"
@@ -47,22 +46,13 @@ def generate_professional_bg_svg():
     """
     return base64.b64encode(svg_content.encode('utf-8')).decode("utf-8")
 
-# Generate the background
 bg_b64 = generate_professional_bg_svg()
 sidebar_bg_img = f"url(\"data:image/svg+xml;base64,{bg_b64}\")"
 
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #f4f4f4; color: #333333; }}
-    
-    /* SIDEBAR WITH PROFESSIONAL PATTERN */
-    section[data-testid="stSidebar"] {{ 
-        background-color: #1b458f; 
-        background-image: {sidebar_bg_img}; 
-        background-repeat: repeat; 
-        background-size: 400px 400px;
-    }}
-    
+    section[data-testid="stSidebar"] {{ background-color: #1b458f; background-image: {sidebar_bg_img}; background-repeat: repeat; background-size: 400px 400px; }}
     section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] li, section[data-testid="stSidebar"] .stMarkdown {{ color: #ffffff !important; }}
     
     /* MENU STYLING */
@@ -82,8 +72,6 @@ st.markdown(f"""
     .filter-box {{ background: rgba(0, 0, 0, 0.25); border-radius: 8px; padding: 15px; margin-top: 20px; border: 1px solid rgba(255,255,255,0.15); }}
     .admin-footer {{ position: fixed; bottom: 20px; width: 100%; font-size: 0.9rem; }}
     .control-bar {{ background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #eee; }}
-    
-    /* HIGHLIGHT BOX */
     .highlight-box {{ background-color: #e3f2fd; border-left: 5px solid #1b458f; padding: 15px; border-radius: 5px; color: #0d47a1; font-weight: 500; margin-bottom: 1rem; }}
     </style>
 """, unsafe_allow_html=True)
@@ -93,52 +81,47 @@ st.markdown(f"""
 # ==========================================
 DATA_FILE = "rangers_data.csv"
 
-# Helper to read CSV safely with different encodings
 def read_csv_safe(filepath):
     try:
         return pd.read_csv(filepath, encoding='utf-8')
     except UnicodeDecodeError:
-        return pd.read_csv(filepath, encoding='cp1252') # Fallback for Excel-saved CSVs
+        return pd.read_csv(filepath, encoding='cp1252')
 
 @st.cache_data
 def load_data():
     try:
         df = read_csv_safe(DATA_FILE)
+        df.columns = df.columns.str.strip() # Clean headers
         
-        # 1. STRIP HEADERS (Critical for new CSVs)
-        df.columns = df.columns.str.strip()
-        
-        # 2. SAFE DATE HANDLING
-        # Ensure Day/Month/Year are numeric, coercing errors to 0/NaN
+        # Safe numeric conversion
         for c in ['Day', 'Month', 'Year']:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).astype(int)
         
-        # Construct date string only if columns exist
+        # Create Date object
         if all(x in df.columns for x in ['Day', 'Month', 'Year']):
+            # Filter out invalid dates (0/0/0) before conversion to avoid errors
+            valid_dates = (df['Day'] > 0) & (df['Month'] > 0) & (df['Year'] > 0)
+            df = df[valid_dates].copy()
             df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
             df['Date'] = pd.to_datetime(df['DateStr'], format="%d-%m-%Y", errors='coerce')
         else:
-            st.error("CSV Missing 'Day', 'Month', or 'Year' columns.")
+            st.error("CSV Missing Date Columns.")
             return pd.DataFrame()
 
-        # 3. CLEAN RESULTS
         if 'Win/Lose/Draw' in df.columns:
             df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
-        else:
-            df['ResultCode'] = '?' 
+        else: df['ResultCode'] = '?'
 
         if 'Score (Rangers First)' in df.columns:
             df['Score (Rangers First)'] = df['Score (Rangers First)'].astype(str)
             
-        # 4. CLEAN PLAYERS (R1...R22)
         cols_to_clean = [f'R{i}' for i in range(1, 23)]
         for col in cols_to_clean:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.strip().replace('nan', None).replace('None', None)
         
         return df.sort_values('Date', ascending=False)
-        
     except Exception as e:
         st.error(f"⚠️ Error loading CSV: {e}")
         return pd.DataFrame()
@@ -174,23 +157,19 @@ def check_password():
     return True
 
 # ==========================================
-# 3. LAYOUT & NAVIGATION
+# 3. LAYOUT
 # ==========================================
 with st.sidebar.container():
-    col_logo, col_txt = st.sidebar.columns([1, 3])
-    with col_logo:
-        st.image(RANGERS_CREST_URL, width=60)
-    with col_txt:
-        st.markdown("<h3 style='margin:0; padding-top:10px;'>IBROX<br>ANALYTICS</h3>", unsafe_allow_html=True)
+    c1, c2 = st.sidebar.columns([1, 3])
+    with c1: st.image(RANGERS_CREST_URL, width=60)
+    with c2: st.markdown("<h3 style='margin:0; padding-top:10px;'>IBROX<br>ANALYTICS</h3>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 
-nav_options = ["Dashboard", "Head-to-Head", "Admin Panel"]
-icons = ["📊", "⚔️", "🔒"]
-nav_labels = [f"{icon}  {opt}" for icon, opt in zip(icons, nav_options)]
-selected_nav = st.sidebar.radio("Main Menu", nav_labels, label_visibility="collapsed")
-page_map = {nav_labels[0]: 'single', nav_labels[1]: 'h2h', nav_labels[2]: 'admin'}
-st.session_state['page'] = page_map[selected_nav]
+nav_labels = ["📊  Dashboard", "⚔️  Head-to-Head", "🔒  Admin Panel"]
+sel_nav = st.sidebar.radio("Menu", nav_labels, label_visibility="collapsed")
+page = 'single' if "Dashboard" in sel_nav else 'h2h' if "Head-to-Head" in sel_nav else 'admin'
+st.session_state['page'] = page
 
 df = load_data()
 players_list = []
@@ -203,52 +182,40 @@ if not df.empty:
     players_list.sort()
 
 df_f = df.copy()
-s_sea = 'All Time'
-s_comp = 'All Competitions'
+s_sea, s_comp = 'All Time', 'All Competitions'
 
-if st.session_state['page'] != 'admin':
-    if not df.empty and 'Tag Season' in df.columns and 'Competition' in df.columns:
-        st.sidebar.markdown("<div class='filter-box'>", unsafe_allow_html=True)
-        st.sidebar.caption("GLOBAL FILTERS")
-        
-        seasons = ['All Time'] + sorted(df['Tag Season'].dropna().unique().tolist(), reverse=True)
-        s_sea = st.sidebar.selectbox("Season", seasons)
-        
-        comps = ['All Competitions'] + sorted(df['Competition'].dropna().unique().tolist())
-        s_comp = st.sidebar.selectbox("Competition", comps)
-        st.sidebar.markdown("</div>", unsafe_allow_html=True)
-        
-        if s_sea != 'All Time': 
-            df_f = df_f[df_f['Tag Season'] == s_sea]
-        if s_comp != 'All Competitions': 
-            df_f = df_f[df_f['Competition'] == s_comp]
-    else:
-        if df.empty:
-            st.sidebar.warning("Data not loaded.")
+if page != 'admin' and not df.empty:
+    st.sidebar.markdown("<div class='filter-box'>", unsafe_allow_html=True)
+    st.sidebar.caption("GLOBAL FILTERS")
+    seasons = ['All Time'] + sorted(df['Tag Season'].dropna().unique().tolist(), reverse=True)
+    s_sea = st.sidebar.selectbox("Season", seasons)
+    comps = ['All Competitions'] + sorted(df['Competition'].dropna().unique().tolist())
+    s_comp = st.sidebar.selectbox("Competition", comps)
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+    
+    if s_sea != 'All Time': df_f = df_f[df_f['Tag Season'] == s_sea]
+    if s_comp != 'All Competitions': df_f = df_f[df_f['Competition'] == s_comp]
 
 # ==========================================
-# 4. MAIN AREA CONTENT
+# 4. PAGES
 # ==========================================
 
-# --- SINGLE PLAYER DASHBOARD ---
-if st.session_state['page'] == 'single':
-    if not players_list:
-        st.info("👋 Welcome! The database is empty or CSV format is incorrect. Please check the **Admin Panel** for load errors.")
+if page == 'single':
+    if not players_list: st.info("Database empty.")
     else:
-        # --- CONTROL BAR ---
         st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
-        c_search, c_rand = st.columns([3, 1])
-        
-        with c_search:
+        c1, c2 = st.columns([3, 1])
+        with c1:
             if 'ps' not in st.session_state: st.session_state.ps = players_list[0]
-            sel_p = st.selectbox("Search Player", players_list, key='ps', label_visibility="collapsed")
-            
-        with c_rand:
-            def pick_rand(): st.session_state.ps = random.choice(players_list)
-            st.button("🔀 Random Player", on_click=pick_rand, use_container_width=True)
+            sel_p = st.selectbox("Player", players_list, key='ps', label_visibility="collapsed")
+        with c2:
+            # FIX: Exclude current player to ensure change
+            def pick_rand(): 
+                pool = [p for p in players_list if p != st.session_state.ps]
+                if pool: st.session_state.ps = random.choice(pool)
+            st.button("🔀 Random", on_click=pick_rand, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # --- STATS CALC ---
         starter_cols = [f'R{i}' for i in range(1, 12)]
         sub_cols = [f'R{i}' for i in range(12, 23)]
         mask = df_f[starter_cols + sub_cols].isin([sel_p]).any(axis=1)
@@ -262,323 +229,247 @@ if st.session_state['page'] == 'single':
             total = starts + subs
             win_rate = (wins/total*100) if total else 0
             
-            # PARTNERSHIP CALCULATION
-            best_partner_txt = "No partnership data yet"
+            best_ptn = "N/A"
             if starts > 0:
-                start_games = p_df[p_df['Role'] == 'Starter']
-                teammate_data = []
-                for idx, row in start_games.iterrows():
-                    res = row['ResultCode']
-                    team_in_match = row[[f'R{i}' for i in range(1, 12)]].values
-                    for mate in team_in_match:
-                        if mate and str(mate) != 'nan' and mate != sel_p:
-                            teammate_data.append({'Teammate': mate, 'Result': res})
-                
-                if teammate_data:
-                    tm_df = pd.DataFrame(teammate_data)
-                    tm_stats = tm_df.groupby('Teammate').agg(Apps=('Result', 'count'), Wins=('Result', lambda x: (x == 'W').sum())).reset_index()
-                    tm_stats['WinRate'] = tm_stats['Wins'] / tm_stats['Apps'] * 100
-                    meaningful = tm_stats[tm_stats['Apps'] >= 5]
-                    if meaningful.empty: meaningful = tm_stats
-                    
-                    if not meaningful.empty:
-                        best = meaningful.sort_values(['WinRate', 'Apps'], ascending=[False, False]).iloc[0]
-                        best_partner_txt = f"{best['Teammate']} ({best['Apps']} gms, {best['WinRate']:.1f}% win rate)"
+                s_games = p_df[p_df['Role'] == 'Starter']
+                mates = []
+                for _, r in s_games.iterrows():
+                    team = r[[f'R{i}' for i in range(1, 12)]].values
+                    res = r['ResultCode']
+                    for m in team:
+                        if m and str(m)!='nan' and m!=sel_p: mates.append({'P':m, 'R':res})
+                if mates:
+                    m_df = pd.DataFrame(mates)
+                    stats = m_df.groupby('P').agg(Apps=('R','count'), Wins=('R', lambda x: (x=='W').sum())).reset_index()
+                    stats['WR'] = stats['Wins']/stats['Apps']*100
+                    sig = stats[stats['Apps']>=5]
+                    if sig.empty: sig = stats
+                    if not sig.empty:
+                        best = sig.sort_values(['WR','Apps'], ascending=False).iloc[0]
+                        best_ptn = f"{best['P']} ({best['Apps']} gms, {best['WR']:.1f}%)"
 
-            # --- HEADER & SUMMARY ---
-            col_head_L, col_head_R = st.columns([3, 1])
-            with col_head_L:
+            c1, c2 = st.columns([3, 1])
+            with c1:
                 st.markdown(f"<h1>{sel_p.upper()}</h1>", unsafe_allow_html=True)
-                st.caption(f"Analyzing: {s_sea} • {s_comp}")
-                st.markdown(f"<div class='highlight-box'>🤝 Best Partnership: <b>{best_partner_txt}</b></div>", unsafe_allow_html=True)
-            with col_head_R:
-                if win_rate > 70: t, c = "🔥 ON FIRE", "#d61a21"
-                elif total > 100: t, c = "🏆 LEGEND", "#FFD700"
-                else: t, c = "⚡ SQUAD", "#1b458f"
-                st.markdown(f"<div style='text-align:center; padding:8px; background:{c}; color:white; font-weight:bold; border-radius:6px; margin-top:15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);'>{t}</div>", unsafe_allow_html=True)
+                st.caption(f"{s_sea} • {s_comp}")
+                st.markdown(f"<div class='highlight-box'>🤝 Best Partner: <b>{best_ptn}</b></div>", unsafe_allow_html=True)
+            with c2:
+                bg = "#d61a21" if win_rate > 70 else "#FFD700" if total > 100 else "#1b458f"
+                lbl = "🔥 ON FIRE" if win_rate > 70 else "🏆 LEGEND" if total > 100 else "⚡ SQUAD"
+                st.markdown(f"<div style='text-align:center; padding:10px; background:{bg}; color:white; font-weight:bold; border-radius:6px; margin-top:15px;'>{lbl}</div>", unsafe_allow_html=True)
 
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Apps", total)
-            m2.metric("Starts", starts)
-            m3.metric("Sub Apps", subs)
-            m4.metric("Win Rate", f"{win_rate:.1f}%")
-
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Apps", total); k2.metric("Starts", starts); k3.metric("Subs", subs); k4.metric("Win %", f"{win_rate:.1f}%")
+            
             st.markdown("<br>", unsafe_allow_html=True)
-            tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "🏆 Performance", "📜 Match Log", "🤝 Connections"])
-
-            # --- TAB 1: OVERVIEW ---
-            with tab1:
-                g1, g2 = st.columns(2)
-                with g1:
-                    st.markdown("##### Overall Record")
-                    fig = go.Figure(data=[go.Pie(labels=['Wins','Draws','Losses'], values=[wins, len(p_df[p_df['ResultCode']=='D']), len(p_df[p_df['ResultCode']=='L'])], hole=.6, marker=dict(colors=['#1b458f','#e0e0e0','#d61a21']))])
-                    fig.update_layout(height=300, margin=dict(t=0,b=0,l=0,r=0), showlegend=True)
-                    st.plotly_chart(fig, use_container_width=True)
-                with g2:
-                    st.markdown("##### Role Timeline")
+            t1, t2, t3, t4 = st.tabs(["📊 Dash", "📈 Trends", "📜 Log", "🤝 Mates"])
+            
+            with t1:
+                c_a, c_b = st.columns(2)
+                with c_a:
+                    fig = go.Figure(data=[go.Pie(labels=['W','D','L'], values=[wins, len(p_df[p_df['ResultCode']=='D']), len(p_df[p_df['ResultCode']=='L'])], hole=.6, marker=dict(colors=['#1b458f','#e0e0e0','#d61a21']))])
+                    fig.update_layout(height=250, margin=dict(t=0,b=0,l=0,r=0)); st.plotly_chart(fig, use_container_width=True)
+                with c_b:
                     fig2 = px.histogram(p_df, x='Date', color='Role', color_discrete_map={'Starter':'#1b458f','Sub':'#d61a21'}, nbins=20)
-                    fig2.update_layout(height=300, bargap=0.2, margin=dict(t=20,b=0,l=0,r=0))
-                    st.plotly_chart(fig2, use_container_width=True)
+                    fig2.update_layout(height=250, bargap=0.2, margin=dict(t=20,b=0,l=0,r=0)); st.plotly_chart(fig2, use_container_width=True)
+            
+            with t2:
+                if 'Tag Season' in p_df.columns:
+                    p_df['IsWin'] = p_df['ResultCode'] == 'W'
+                    sea = p_df.groupby('Tag Season').agg(G=('ResultCode','count'), W=('IsWin','sum')).reset_index()
+                    sea['WR'] = sea['W']/sea['G']*100
+                    st.plotly_chart(px.line(sea, x='Tag Season', y='WR', markers=True, color_discrete_sequence=['#1b458f'], title="Win Rate by Season"), use_container_width=True)
+                if 'Competition' in p_df.columns:
+                    cmp = p_df.groupby('Competition').agg(G=('ResultCode','count'), W=('IsWin','sum')).reset_index()
+                    cmp['WR'] = cmp['W']/cmp['G']*100
+                    st.plotly_chart(px.bar(cmp, x='WR', y='Competition', orientation='h', color_discrete_sequence=['#d61a21'], title="Win Rate by Comp"), use_container_width=True)
 
-            # --- TAB 2: PERFORMANCE ---
-            with tab2:
-                col_trend, col_comp = st.columns(2)
-                
-                with col_trend:
-                    st.markdown("##### 📈 Performance Timeline")
-                    if 'Tag Season' in p_df.columns:
-                        p_df['IsWin'] = p_df['ResultCode'] == 'W'
-                        season_stats = p_df.groupby('Tag Season').agg(Games=('ResultCode', 'count'), Wins=('IsWin', 'sum')).reset_index()
-                        season_stats['Win Rate'] = (season_stats['Wins'] / season_stats['Games']) * 100
-                        season_stats = season_stats.sort_values('Tag Season') 
-                        fig_trend = px.line(season_stats, x='Tag Season', y='Win Rate', markers=True, color_discrete_sequence=['#1b458f'])
-                        fig_trend.update_layout(yaxis_range=[0, 100], height=350)
-                        st.plotly_chart(fig_trend, use_container_width=True)
-                    else: st.warning("No Season Data")
+            with t3:
+                d_cols = ['Date', 'Opponent', 'Competition', 'Venue', 'Score (Rangers First)', 'Win/Lose/Draw', 'Role']
+                st.dataframe(p_df[[c for c in d_cols if c in p_df.columns]], use_container_width=True, hide_index=True)
 
-                with col_comp:
-                    st.markdown("##### 🏆 By Competition")
-                    if 'Competition' in p_df.columns:
-                        p_df['IsWin'] = p_df['ResultCode'] == 'W'
-                        comp_stats = p_df.groupby('Competition').agg(Games=('ResultCode', 'count'), Wins=('IsWin', 'sum')).reset_index()
-                        comp_stats['Win Rate'] = (comp_stats['Wins'] / comp_stats['Games']) * 100
-                        comp_stats = comp_stats.sort_values('Win Rate', ascending=True)
-                        fig_comp = px.bar(comp_stats, x='Win Rate', y='Competition', orientation='h', text='Games', color_discrete_sequence=['#d61a21'])
-                        fig_comp.update_traces(texttemplate='%{text} games', textposition='inside')
-                        fig_comp.update_layout(xaxis_range=[0, 100], height=350)
-                        st.plotly_chart(fig_comp, use_container_width=True)
-                    else: st.warning("No Competition Data")
+            with t4:
+                if 'stats' in locals():
+                    stats = stats.sort_values(['Apps', 'WR'], ascending=False)
+                    st.dataframe(stats, use_container_width=True, hide_index=True, column_config={"WR": st.column_config.ProgressColumn("Win %", format="%.1f%%", min_value=0, max_value=100)})
+                else: st.info("No data")
+        else: st.warning("No matches found.")
 
-            # --- TAB 3: MATCH LOG ---
-            with tab3:
-                potential_cols = ['Date', 'Opponent', 'Competition', 'Venue', 'Home/Away/Neutral', 'Score (Rangers First)', 'Win/Lose/Draw', 'Manager', 'Role']
-                v_cols = [c for c in potential_cols if c in p_df.columns]
-                st.dataframe(
-                    p_df[v_cols], 
-                    use_container_width=True, 
-                    hide_index=True, 
-                    column_config={
-                        "Score (Rangers First)": st.column_config.TextColumn("Score"),
-                        "Date": st.column_config.DateColumn("Match Date", format="DD/MM/YYYY")
-                    }
-                )
-
-            # --- TAB 4: CONNECTIONS ---
-            with tab4:
-                st.markdown("##### Partnership Ranking (Starts Together)")
-                if starts > 0 and 'tm_stats' in locals():
-                    st.dataframe(
-                        tm_stats,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Teammate": st.column_config.TextColumn("Teammate", width="medium"),
-                            "Apps": st.column_config.NumberColumn("Games Together", format="%d"),
-                            "Wins": st.column_config.NumberColumn("Wins Together", format="%d"),
-                            "WinRate": st.column_config.ProgressColumn("Chemistry (Win %)", format="%.1f%%", min_value=0, max_value=100)
-                        }
-                    )
-                else: st.info("No data available.")
-        else:
-            st.warning(f"No data found for **{sel_p}** with current filters.")
-
-# --- HEAD TO HEAD ---
-elif st.session_state['page'] == 'h2h':
+elif page == 'h2h':
     st.markdown("<h1>⚔️ Head-to-Head</h1>", unsafe_allow_html=True)
-    if len(players_list) < 2:
-        st.warning("Need at least 2 players in the database to compare.")
+    if len(players_list) < 2: st.warning("Need 2+ players")
     else:
         if 'h2h_p1' not in st.session_state: st.session_state.h2h_p1 = players_list[0]
-        if 'h2h_p2' not in st.session_state: st.session_state.h2h_p2 = players_list[1] if len(players_list) > 1 else players_list[0]
+        if 'h2h_p2' not in st.session_state: st.session_state.h2h_p2 = players_list[1] if len(players_list)>1 else players_list[0]
 
-        def h2h_rand_p1(): st.session_state.h2h_p1 = random.choice(players_list)
-        def h2h_rand_p2(): st.session_state.h2h_p2 = random.choice(players_list)
-        def h2h_rand_teammate():
-            p1_current = st.session_state.h2h_p1
-            mask = df_f[[f'R{i}' for i in range(1, 23)]].isin([p1_current]).any(axis=1)
-            games = df_f[mask]
-            if not games.empty:
-                all_p = games[[f'R{i}' for i in range(1, 23)]].values.ravel()
-                mates = [p for p in all_p if pd.notna(p) and p != p1_current and str(p) != 'nan']
-                mates = list(set(mates))
-                if mates: st.session_state.h2h_p2 = random.choice(mates)
-                else: st.toast("No teammates found.")
-            else: st.toast("Player has no matches.")
+        def r1(): 
+            pool = [p for p in players_list if p != st.session_state.h2h_p1]
+            if pool: st.session_state.h2h_p1 = random.choice(pool)
+        def r2(): 
+            pool = [p for p in players_list if p != st.session_state.h2h_p2 and p != st.session_state.h2h_p1]
+            if pool: st.session_state.h2h_p2 = random.choice(pool)
+        def rt():
+            p1 = st.session_state.h2h_p1
+            msk = df_f[[f'R{i}' for i in range(1, 23)]].isin([p1]).any(axis=1)
+            g = df_f[msk]
+            if not g.empty:
+                pool = g[[f'R{i}' for i in range(1, 23)]].values.ravel()
+                # Exclude P1 and current P2
+                cur_p2 = st.session_state.h2h_p2
+                valid = [x for x in pool if pd.notna(x) and x!=p1 and str(x)!='nan' and x!=cur_p2]
+                if valid: st.session_state.h2h_p2 = random.choice(list(set(valid)))
+                else: st.toast("No other teammates found.")
+            else: st.toast("No matches for P1.")
 
         st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
-        col_sel1, col_sel2 = st.columns(2)
-        with col_sel1:
+        c1, c2 = st.columns(2)
+        with c1:
             st.selectbox("Player 1", players_list, key='h2h_p1', label_visibility="collapsed")
-            st.button("🔀 Random Player 1", on_click=h2h_rand_p1, use_container_width=True)
-        with col_sel2:
+            st.button("🔀 Random P1", on_click=r1, use_container_width=True)
+        with c2:
             st.selectbox("Player 2", players_list, key='h2h_p2', label_visibility="collapsed")
-            c_r1, c_r2 = st.columns(2)
-            c_r1.button("🔀 Random P2", on_click=h2h_rand_p2, use_container_width=True)
-            c_r2.button("🤝 Random Teammate", on_click=h2h_rand_teammate, use_container_width=True)
+            ca, cb = st.columns(2)
+            ca.button("🔀 Random P2", on_click=r2, use_container_width=True)
+            cb.button("🤝 Teammate", on_click=rt, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
-        
-        p1 = st.session_state.h2h_p1
-        p2 = st.session_state.h2h_p2
 
-        if p1 == p2: st.error("Select different players.")
+        p1, p2 = st.session_state.h2h_p1, st.session_state.h2h_p2
+        if p1 == p2: st.error("Select different players")
         else:
-            def get_h2h_stats(p):
+            def get_stats(p):
                 msk = df_f[[f'R{i}' for i in range(1, 23)]].isin([p]).any(axis=1)
                 d = df_f[msk]
                 w = len(d[d['ResultCode']=='W'])
-                starts = len(d[d[[f'R{i}' for i in range(1, 12)]].isin([p]).any(axis=1)])
-                return {'Total': len(d), 'Wins': w, 'Starts': starts, 'Win Rate': (w/len(d)*100) if len(d) else 0}
+                return {'T':len(d), 'W':w, 'WR':(w/len(d)*100) if len(d) else 0}
             
-            def get_partnership_chem(pA, pB):
-                starters = [f'R{i}' for i in range(1, 12)]
-                mask_A = df_f[starters].isin([pA]).any(axis=1)
-                mask_B = df_f[starters].isin([pB]).any(axis=1)
-                combined = df_f[mask_A & mask_B]
-                total = len(combined)
-                wins = len(combined[combined['ResultCode'] == 'W'])
-                rate = (wins/total*100) if total > 0 else 0
-                return total, rate
+            s1, s2 = get_stats(p1), get_stats(p2)
+            
+            # Shared logic
+            start_cols = [f'R{i}' for i in range(1, 12)]
+            mA = df_f[start_cols].isin([p1]).any(axis=1)
+            mB = df_f[start_cols].isin([p2]).any(axis=1)
+            shared = df_f[mA & mB]
+            chem_g = len(shared)
+            chem_w = len(shared[shared['ResultCode']=='W'])
+            chem_r = (chem_w/chem_g*100) if chem_g else 0
 
-            s1 = get_h2h_stats(p1)
-            s2 = get_h2h_stats(p2)
-            chem_games, chem_rate = get_partnership_chem(p1, p2)
-
-            m1, m2, m3 = st.columns(3)
-            with m1:
-                st.markdown(f"### {p1}")
-                st.metric("Win Rate", f"{s1['Win Rate']:.1f}%")
-                st.metric("Total Apps", s1['Total'])
-            with m3:
-                st.markdown(f"### {p2}")
-                st.metric("Win Rate", f"{s2['Win Rate']:.1f}%", delta=f"{s2['Win Rate']-s1['Win Rate']:.1f}%")
-                st.metric("Total Apps", s2['Total'], delta=s2['Total']-s1['Total'])
-            with m2:
-                categories = ['Total Apps', 'Wins', 'Starts', 'Win Rate']
+            c1, c2, c3 = st.columns(3)
+            c1.markdown(f"### {p1}"); c1.metric("Win Rate", f"{s1['WR']:.1f}%"); c1.metric("Apps", s1['T'])
+            c3.markdown(f"### {p2}"); c3.metric("Win Rate", f"{s2['WR']:.1f}%", delta=f"{s2['WR']-s1['WR']:.1f}%"); c3.metric("Apps", s2['T'], delta=s2['T']-s1['T'])
+            
+            with c2:
                 fig = go.Figure()
-                fig.add_trace(go.Scatterpolar(r=[s1['Total'], s1['Wins'], s1['Starts'], s1['Win Rate']], theta=categories, fill='toself', name=p1, line_color='#1b458f'))
-                fig.add_trace(go.Scatterpolar(r=[s2['Total'], s2['Wins'], s2['Starts'], s2['Win Rate']], theta=categories, fill='toself', name=p2, line_color='#d61a21'))
-                fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False, height=250, margin=dict(t=20,b=20,l=20,r=20))
+                cats = ['Apps', 'Wins', 'Win Rate'] # Simple Radar
+                # Normalize for radar shape roughly (Win Rate is 0-100, Counts vary)
+                # Just showing raw might be skewed, but fine for now
+                fig.add_trace(go.Scatterpolar(r=[s1['T'], s1['W'], s1['WR']], theta=cats, fill='toself', name=p1, line_color='#1b458f'))
+                fig.add_trace(go.Scatterpolar(r=[s2['T'], s2['W'], s2['WR']], theta=cats, fill='toself', name=p2, line_color='#d61a21'))
+                fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False, height=200, margin=dict(t=20,b=20,l=20,r=20))
                 st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("---")
-            st.subheader("🔗 Partnership Analysis")
-            c_chem1, c_chem2 = st.columns(2)
-            c_chem1.metric("Games Started Together", chem_games)
-            c_chem2.metric("Win Rate as Duo", f"{chem_rate:.1f}%")
-            if chem_games > 0: st.progress(chem_rate / 100)
-            else: st.caption("No games started together.")
+            st.subheader("🔗 Partnership (Starts)")
+            ca, cb = st.columns(2)
+            ca.metric("Games Together", chem_g)
+            cb.metric("Duo Win Rate", f"{chem_r:.1f}%")
+            if chem_g: st.progress(chem_r/100)
+            else: st.caption("Never started together.")
 
-# --- ADMIN PANEL ---
-elif st.session_state['page'] == 'admin':
+elif page == 'admin':
     st.markdown("<h1>🔒 Admin Panel</h1>", unsafe_allow_html=True)
     if check_password():
-        st.success("Authenticated")
+        st.success("Ready")
+        tab1, tab2 = st.tabs(["Add Match", "Edit Match"])
         
-        tab_add, tab_edit = st.tabs(["➕ Add Match", "✏️ Edit Fixture"])
-        
-        # ADD MATCH
-        with tab_add:
+        with tab1:
             st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
-            st.subheader("New Match Record")
-            
             if not df.empty:
-                ex_opps = sorted(df['Opponent'].dropna().unique().tolist()) if 'Opponent' in df.columns else []
-                ex_comps = sorted(df['Competition'].dropna().unique().tolist()) if 'Competition' in df.columns else []
-                ex_seas = sorted(df['Tag Season'].dropna().unique().tolist()) if 'Tag Season' in df.columns else []
-                ex_venues = sorted(df['Venue'].dropna().unique().tolist()) if 'Venue' in df.columns else []
-                ex_managers = sorted(df['Manager'].dropna().unique().tolist()) if 'Manager' in df.columns else []
-                ex_referees = sorted(df['Referee:'].dropna().unique().tolist()) if 'Referee:' in df.columns else []
-            else:
-                ex_opps, ex_comps, ex_seas, ex_venues, ex_managers, ex_referees = [], [], [], [], [], []
+                ops = sorted(df['Opponent'].dropna().unique())
+                cmps = sorted(df['Competition'].dropna().unique())
+                seas = sorted(df['Tag Season'].dropna().unique())
+            else: ops, cmps, seas = [], [], []
             
             c1, c2, c3 = st.columns(3)
-            inp_date = c1.date_input("Date", datetime.today())
+            date = c1.date_input("Date")
+            opp = c2.selectbox("Opponent", ["Select..."] + ops + ["Add New"])
+            if opp=="Add New": opp = c2.text_input("New Opponent")
+            elif opp=="Select...": opp=""
             
-            opp_sel = c2.selectbox("Opponent", ["Select..."] + ex_opps + ["➕ Add New"])
-            inp_opp = c2.text_input("New Opponent Name") if opp_sel == "➕ Add New" else (opp_sel if opp_sel != "Select..." else "")
-            
-            comp_sel = c3.selectbox("Competition", ["Select..."] + ex_comps + ["➕ Add New"])
-            inp_comp = c3.text_input("New Competition Name") if comp_sel == "➕ Add New" else (comp_sel if comp_sel != "Select..." else "")
+            cmp = c3.selectbox("Competition", ["Select..."] + cmps + ["Add New"])
+            if cmp=="Add New": cmp = c3.text_input("New Comp")
+            elif cmp=="Select...": cmp=""
 
             c4, c5, c6 = st.columns(3)
-            inp_round = c4.text_input("Round", placeholder="e.g. Final")
-            ven_sel = c5.selectbox("Venue", ["Select..."] + ex_venues + ["➕ Add New"])
-            inp_venue = c5.text_input("New Venue") if ven_sel == "➕ Add New" else (ven_sel if ven_sel != "Select..." else "")
-            inp_ha = c6.selectbox("Home/Away/Neutral", ["Home", "Away", "Neutral"])
+            scr = c4.text_input("Score")
+            res = c5.selectbox("Result", ["Win","Draw","Lose"])
+            sea = c6.selectbox("Season", ["Select..."] + seas + ["Add New"])
+            if sea=="Add New": sea = c6.text_input("New Season")
+            elif sea=="Select...": sea=""
 
+            # Extra fields
             c7, c8, c9 = st.columns(3)
-            ref_sel = c7.selectbox("Referee", ["Select..."] + ex_referees + ["➕ Add New"])
-            inp_ref = c7.text_input("New Referee") if ref_sel == "➕ Add New" else (ref_sel if ref_sel != "Select..." else "")
-            inp_crowd = c8.text_input("Crowd", placeholder="e.g. 50000")
-            man_sel = c9.selectbox("Manager", ["Select..."] + ex_managers + ["➕ Add New"])
-            inp_man = c9.text_input("New Manager") if man_sel == "➕ Add New" else (man_sel if man_sel != "Select..." else "")
-
-            c10, c11, c12 = st.columns(3)
-            inp_score = c10.text_input("Score (Rangers-Opp)", placeholder="e.g. 3-1")
-            inp_res = c11.selectbox("Result", ["Win", "Draw", "Lose"])
-            sea_sel = c12.selectbox("Season", ["Select..."] + ex_seas + ["➕ Add New"])
-            inp_sea = c12.text_input("New Season (e.g. 25/26)") if sea_sel == "➕ Add New" else (sea_sel if sea_sel != "Select..." else "")
+            rnd = c7.text_input("Round")
+            ven = c8.text_input("Venue")
+            ha = c9.selectbox("H/A", ["Home","Away","Neutral"])
             
             st.markdown("---")
-            with st.expander("🆕 Register New Player"):
-                np_col1, np_col2 = st.columns([3,1])
-                new_p = np_col1.text_input("Name", placeholder="e.g. J. Butland", label_visibility="collapsed")
-                if np_col2.button("Add Player"):
-                    if new_p and new_p not in players_list:
-                        st.session_state['temp_new_players'].append(new_p)
+            with st.expander("Add New Player"):
+                n_pl = st.text_input("Name")
+                if st.button("Add"): 
+                    if n_pl: 
+                        st.session_state.temp_new_players.append(n_pl)
                         st.rerun()
-            
-            st.markdown("##### Team Sheet")
-            sc1, sc2 = st.columns(2)
-            selections = {}
-            with sc1:
-                st.caption("Starters (1-11)")
-                for i in range(1, 12): selections[f"R{i}"] = st.selectbox(f"R{i}", [""] + players_list, key=f"r{i}")
-            with sc2:
-                st.caption("Subs (12-22)")
-                for i in range(12, 23): selections[f"R{i}"] = st.selectbox(f"R{i}", [""] + players_list, key=f"r{i}")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("💾 Save Match", type="primary", use_container_width=True):
-                if not inp_opp or not inp_score:
-                    st.error("Missing Details")
+
+            st.markdown("##### Squad")
+            c_s1, c_s2 = st.columns(2)
+            sel = {}
+            with c_s1:
+                st.caption("Starters")
+                for i in range(1,12): sel[f"R{i}"] = st.selectbox(f"R{i}", [""]+players_list, key=f"r{i}")
+            with c_s2:
+                st.caption("Subs")
+                for i in range(12,23): sel[f"R{i}"] = st.selectbox(f"R{i}", [""]+players_list, key=f"r{i}")
+
+            if st.button("Save Match", type="primary"):
+                if not opp or not scr: st.error("Missing Info")
                 else:
-                    row = {
-                        'Title': f"{inp_opp} ({inp_ha[0]})", 'Opponent': inp_opp, 'Competition': inp_comp,
-                        'Round': inp_round, 'Venue': inp_venue, 'Home/Away/Neutral': inp_ha,
-                        'Day': inp_date.day, 'Month': inp_date.month, 'Year': inp_date.year,
-                        'Tag Season': inp_sea, 'Score (Rangers First)': inp_score, 
-                        'Win/Lose/Draw': inp_res, 'Referee:': inp_ref, 'Crowd': inp_crowd, 'Manager': inp_man
-                    }
-                    for k,v in selections.items(): row[k] = v if v else None
+                    row = {'Day':date.day, 'Month':date.month, 'Year':date.year, 'Opponent':opp, 'Competition':cmp, 'Score (Rangers First)':scr, 'Win/Lose/Draw':res, 'Tag Season':sea, 'Round':rnd, 'Venue':ven, 'Home/Away/Neutral':ha}
+                    for k,v in sel.items(): row[k] = v if v else None
                     df_cur = read_csv_safe(DATA_FILE)
-                    df_final = pd.concat([df_cur, pd.DataFrame([row])], ignore_index=True)
-                    if save_data(df_final):
-                        st.success("Match Saved!")
-                        st.session_state['temp_new_players'] = []
+                    df_new = pd.concat([df_cur, pd.DataFrame([row])], ignore_index=True)
+                    if save_data(df_new): 
+                        st.success("Saved")
+                        st.session_state.temp_new_players = []
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # EDIT FIXTURE
-        with tab_edit:
+        with tab2:
             st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
             if not df.empty:
-                df['Label'] = df['Date'].dt.strftime('%Y-%m-%d') + " vs " + df['Opponent']
-                target = st.selectbox("Select Match to Edit", df['Label'].unique())
-                if target:
-                    orig = df[df['Label'] == target].iloc[0]
-                    ed1, ed2 = st.columns(2)
-                    new_d = ed1.date_input("Correct Date", orig['Date'])
-                    new_o = ed2.text_input("Correct Opponent", orig['Opponent'])
-                    if st.button("Update Info"):
+                # FIX: Robust filtering for edit
+                # Use a safer label
+                df['Label'] = df.apply(lambda x: f"{x['DateStr']} vs {x['Opponent']}", axis=1)
+                target = st.selectbox("Select Match", df['Label'].unique())
+                
+                # FIX: IndexError Safe Check
+                subset = df[df['Label'] == target]
+                if not subset.empty:
+                    orig = subset.iloc[0]
+                    e1, e2 = st.columns(2)
+                    nd = e1.date_input("New Date", orig['Date'])
+                    no = e2.text_input("New Opponent", orig['Opponent'])
+                    
+                    if st.button("Update"):
                         raw = read_csv_safe(DATA_FILE)
-                        m = (raw['Day']==orig['Day']) & (raw['Month']==orig['Month']) & (raw['Year']==orig['Year']) & (raw['Opponent']==orig['Opponent'])
-                        if m.any():
-                            idx = raw[m].index[0]
-                            raw.at[idx, 'Day'] = new_d.day
-                            raw.at[idx, 'Month'] = new_d.month
-                            raw.at[idx, 'Year'] = new_d.year
-                            raw.at[idx, 'Opponent'] = new_o
-                            if save_data(raw): st.success("Updated.")
-                        else: st.error("Record not found.")
-            else: st.info("No matches.")
+                        # Match logic
+                        mask = (raw['Day']==orig['Day']) & (raw['Month']==orig['Month']) & (raw['Year']==orig['Year']) & (raw['Opponent']==orig['Opponent'])
+                        if mask.any():
+                            idx = raw[mask].index[0]
+                            raw.at[idx, 'Day'] = nd.day
+                            raw.at[idx, 'Month'] = nd.month
+                            raw.at[idx, 'Year'] = nd.year
+                            raw.at[idx, 'Opponent'] = no
+                            if save_data(raw): st.success("Updated")
+                        else: st.error("Row not found in CSV")
+                else:
+                    st.error("Match details not found.")
             st.markdown("</div>", unsafe_allow_html=True)
