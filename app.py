@@ -111,8 +111,12 @@ def load_data():
 
 def save_data(df_to_save):
     try:
-        cols_drop = ['DateStr', 'Date', 'ResultCode']
+        # Updated column order to match user request (No 'Round')
+        # We explicitly order columns to ensure consistency, dropping calculations
+        cols_drop = ['DateStr', 'Date', 'ResultCode', 'Label']
         df_c = df_to_save.drop(columns=[c for c in cols_drop if c in df_to_save.columns])
+        
+        # Ensure Label or other temp columns are gone
         df_c.to_csv(DATA_FILE, index=False)
         load_data.clear()
         return True
@@ -486,11 +490,11 @@ elif st.session_state['page'] == 'admin':
             comp_sel = c3.selectbox("Competition", ["Select..."] + ex_comps + ["➕ Add New"])
             inp_comp = c3.text_input("New Competition Name") if comp_sel == "➕ Add New" else (comp_sel if comp_sel != "Select..." else "")
 
-            c4, c5, c6 = st.columns(3)
-            inp_round = c4.text_input("Round", placeholder="e.g. Final")
-            ven_sel = c5.selectbox("Venue", ["Select..."] + ex_venues + ["➕ Add New"])
-            inp_venue = c5.text_input("New Venue") if ven_sel == "➕ Add New" else (ven_sel if ven_sel != "Select..." else "")
-            inp_ha = c6.selectbox("Home/Away/Neutral", ["Home", "Away", "Neutral"])
+            # REMOVED 'ROUND' as per user request
+            c4, c5 = st.columns(2)
+            ven_sel = c4.selectbox("Venue", ["Select..."] + ex_venues + ["➕ Add New"])
+            inp_venue = c4.text_input("New Venue") if ven_sel == "➕ Add New" else (ven_sel if ven_sel != "Select..." else "")
+            inp_ha = c5.selectbox("Home/Away/Neutral", ["Home", "Away", "Neutral"])
 
             c7, c8, c9 = st.columns(3)
             ref_sel = c7.selectbox("Referee", ["Select..."] + ex_referees + ["➕ Add New"])
@@ -531,7 +535,7 @@ elif st.session_state['page'] == 'admin':
                 else:
                     row = {
                         'Title': f"{inp_opp} ({inp_ha[0]})", 'Opponent': inp_opp, 'Competition': inp_comp,
-                        'Round': inp_round, 'Venue': inp_venue, 'Home/Away/Neutral': inp_ha,
+                        'Venue': inp_venue, 'Home/Away/Neutral': inp_ha,
                         'Day': inp_date.day, 'Month': inp_date.month, 'Year': inp_date.year,
                         'Tag Season': inp_sea, 'Score (Rangers First)': inp_score, 
                         'Win/Lose/Draw': inp_res, 'Referee:': inp_ref, 'Crowd': inp_crowd, 'Manager': inp_man
