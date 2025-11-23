@@ -16,19 +16,65 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ASSETS ---
-# UPDATED: New Crest URL
-RANGERS_CREST_URL = "https://i-p.rmcdn.net/64f5b85fe6a06b0052c2bc23/4535847/image-fa9870a3-f7d2-4499-b21c-f56c8b56f5d6.png?e=webp&nll=true"
+# --- ASSETS & BACKGROUND GENERATION ---
+# High-Fidelity Heraldic Lion Path
+lion_path_d = "M45.5 10.2c-1.3.6-3.1 2.4-3.1 3.1 0 .2.4.6.9.8 1.1.5 1.3 1.8.3 2.4-1.8 1.1-1.1 3.3.9 2.8 1.3-.3 2.2.4 1.8 1.5-.3.8-.2 1.3.4 1.3.5 0 1.1.9 1.3 2 .4 2.2 2.9 2.6 3.3.6.2-1.1.9-1.8 1.8-1.8 1.3 0 1.5.4.9 1.8-.9 1.8-.2 2.2 2.9 1.5 2.4-.5 2.6-.5 3.5.7.6.7 1.5 1.1 2.4.9 2.4-.5 3.5 1.3 1.3 2.2-1.3.5-1.1 1.5.4 1.5 1.3 0 2.2.7 2.2 1.8 0 1.5-.7 1.8-2.6 1.1-2.9-1.1-3.3-1.1-3.3.2 0 .7-1.3 2.2-2.9 3.3-3.1 2.2-3.1 2.4-1.3 4.6.9 1.1 1.3 2.4.9 2.9-.9 1.1-1.1 3.5-.2 3.5.4 0 .7.9.7 2 0 1.5.7 2 2.9 2 2.4 0 2.9.4 2.9 2.6 0 1.5-.4 2.4-1.3 2.4-1.5 0-1.5.2 0 1.8 2.2 2.2 1.5 3.7-1.8 3.7-2.2 0-2.4.2-1.1 1.3 2.6 2.4 2.6 2.4 0 1.1-1.3-.7-2.6-.5-2.9.4-.4 1.8-.2 2.9.4 2.4 2.4 1.8 3.7-1.5 3.5-1.5-.1-2.4-.7-2.4-1.5 0-.7-.7-1.1-1.8-1.1-1.5 0-2-.7-1.8-2.6.2-1.5-.2-2.6-.9-2.6-.7 0-1.3-.7-1.3-1.5 0-1.3-.9-1.5-4.4-1.3-4.4.2-4.6.2-3.3-1.1 1.8-1.8 1.3-2.4-2.2-2.4-3.1 0-3.5.2-3.1 1.5.4 1.1.2 1.8-.7 1.8-1.3 0-1.5.7-1.1 2.4.5 2.2.5 2.6-.2 2.6-.5 0-1.5.9-2.2 2-.7 1.1-1.3 1.8-1.3 1.5 0-.2.7-1.1 1.5-2 .9-1.1 1.5-2.2 1.5-2.6 0-.4-.9-1.3-2-2-2.2-1.3-2-1.5 1.1-1.5 1.8 0 3.3-.4 3.3-.9 0-.5-.9-2-2-3.3-1.8-2.2-1.8-2.4.2-2.4 1.3 0 2.4-.7 2.4-1.5 0-.9.7-1.5 1.5-1.5.9 0 1.5-.7 1.5-1.5 0-1.1-.9-1.5-2.6-1.3-2.4.2-3.1-.2-3.1-1.5 0-1.1-1.3-2.6-3.1-3.7-3.5-2.2-5.7-2-5.7.6 0 .7-.7 1.3-1.5 1.3-.9 0-2-.7-2.6-1.5-.7-1.1-1.1-1.1-1.5-.2-.4.7-1.5.9-2.6.4-1.8-.7-1.8-.9.2-1.1 1.5-.2 2.6-.2 2.6.2 0 .4-.9 1.5-2 2.4-1.5 1.3-2 1.3-2 0 0-1.1.9-2.2 2.2-2.6 1.1-.4 2-.4 2 0 0 .4.7.4 1.5 0 .9-.4 1.3-.4 1.1 0-.2.4-.4 1.8-.4 3.1 0 1.3.4 2.4.9 2.4.4 0 .7-.4.7-.9 0-.4-1.1-1.5-2.4-2.4-2-1.3-2.2-1.8-1.3-2.2.7-.4.9-.9.7-1.3-.4-.7 1.5-2.6 2.6-2.6.9 0 1.1-.4.7-.9-.7-.9 0-1.5 1.5-1.5 1.3 0 1.5-.2.9-.9-.4-.4-.2-1.1.4-1.5.7-.4.9-1.3.4-2z"
 
-lion_svg_path = "M45.5 10.2c-1.3.6-3.1 2.4-3.1 3.1 0 .2.4.6.9.8 1.1.5 1.3 1.8.3 2.4-1.8 1.1-1.1 3.3.9 2.8 1.3-.3 2.2.4 1.8 1.5-.3.8-.2 1.3.4 1.3.5 0 1.1.9 1.3 2 .4 2.2 2.9 2.6 3.3.6.2-1.1.9-1.8 1.8-1.8 1.3 0 1.5.4.9 1.8-.9 1.8-.2 2.2 2.9 1.5 2.4-.5 2.6-.5 3.5.7.6.7 1.5 1.1 2.4.9 2.4-.5 3.5 1.3 1.3 2.2-1.3.5-1.1 1.5.4 1.5 1.3 0 2.2.7 2.2 1.8 0 1.5-.7 1.8-2.6 1.1-2.9-1.1-3.3-1.1-3.3.2 0 .7-1.3 2.2-2.9 3.3-3.1 2.2-3.1 2.4-1.3 4.6.9 1.1 1.3 2.4.9 2.9-.9 1.1-1.1 3.5-.2 3.5.4 0 .7.9.7 2 0 1.5.7 2 2.9 2 2.4 0 2.9.4 2.9 2.6 0 1.5-.4 2.4-1.3 2.4-1.5 0-1.5.2 0 1.8 2.2 2.2 1.5 3.7-1.8 3.7-2.2 0-2.4.2-1.1 1.3 2.6 2.4 2.6 2.4 0 1.1-1.3-.7-2.6-.5-2.9.4-.4 1.8-.2 2.9.4 2.4 2.4 1.8 3.7-1.5 3.5-1.5-.1-2.4-.7-2.4-1.5 0-.7-.7-1.1-1.8-1.1-1.5 0-2-.7-1.8-2.6.2-1.5-.2-2.6-.9-2.6-.7 0-1.3-.7-1.3-1.5 0-1.3-.9-1.5-4.4-1.3-4.4.2-4.6.2-3.3-1.1 1.8-1.8 1.3-2.4-2.2-2.4-3.1 0-3.5.2-3.1 1.5.4 1.1.2 1.8-.7 1.8-1.3 0-1.5.7-1.1 2.4.5 2.2.5 2.6-.2 2.6-.5 0-1.5.9-2.2 2-.7 1.1-1.3 1.8-1.3 1.5 0-.2.7-1.1 1.5-2 .9-1.1 1.5-2.2 1.5-2.6 0-.4-.9-1.3-2-2-2.2-1.3-2-1.5 1.1-1.5 1.8 0 3.3-.4 3.3-.9 0-.5-.9-2-2-3.3-1.8-2.2-1.8-2.4.2-2.4 1.3 0 2.4-.7 2.4-1.5 0-.9.7-1.5 1.5-1.5.9 0 1.5-.7 1.5-1.5 0-1.1-.9-1.5-2.6-1.3-2.4.2-3.1-.2-3.1-1.5 0-1.1-1.3-2.6-3.1-3.7-3.5-2.2-5.7-2-5.7.6 0 .7-.7 1.3-1.5 1.3-.9 0-2-.7-2.6-1.5-.7-1.1-1.1-1.1-1.5-.2-.4.7-1.5.9-2.6.4-1.8-.7-1.8-.9.2-1.1 1.5-.2 2.6-.2 2.6.2 0 .4-.9 1.5-2 2.4-1.5 1.3-2 1.3-2 0 0-1.1.9-2.2 2.2-2.6 1.1-.4 2-.4 2 0 0 .4.7.4 1.5 0 .9-.4 1.3-.4 1.1 0-.2.4-.4 1.8-.4 3.1 0 1.3.4 2.4.9 2.4.4 0 .7-.4.7-.9 0-.4-1.1-1.5-2.4-2.4-2-1.3-2.2-1.8-1.3-2.2.7-.4.9-.9.7-1.3-.4-.7 1.5-2.6 2.6-2.6.9 0 1.1-.4.7-.9-.7-.9 0-1.5 1.5-1.5 1.3 0 1.5-.2.9-.9-.4-.4-.2-1.1.4-1.5.7-.4.9-1.3.4-2z"
-lion_svg = f"<svg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'><path d='{lion_svg_path}' fill='#ffffff' opacity='0.08'/></svg>"
-lion_b64 = base64.b64encode(lion_svg.encode('utf-8')).decode("utf-8")
+def generate_random_bg_svg():
+    # Use a fixed seed so the "random" pattern is static across reloads
+    # 1872 - Rangers Founding Year
+    random.seed(1872) 
+    
+    # Canvas Size
+    w, h = 500, 500
+    
+    svg_elements = []
+    
+    # Generate 20 random lions
+    for _ in range(20):
+        # Random Position
+        x = random.randint(0, w)
+        y = random.randint(0, h)
+        
+        # Random Scale (Small to Medium)
+        scale = random.uniform(0.4, 1.2)
+        
+        # Random Rotation (0 to 360 degrees)
+        rot = random.randint(0, 360)
+        
+        # Random Opacity (Very subtle ghost effect)
+        opacity = random.uniform(0.02, 0.06)
+        
+        # Transform: Rotate around center of the lion (approx 50,50 for this path) then translate
+        transform = f"translate({x}, {y}) rotate({rot} 50 50) scale({scale})"
+        
+        svg_elements.append(
+            f"<path d='{lion_path_d}' fill='#add8e6' opacity='{opacity}' transform='{transform}' />"
+        )
+    
+    svg_content = f"""
+    <svg width='{w}' height='{h}' viewBox='0 0 {w} {h}' xmlns='http://www.w3.org/2000/svg'>
+        {''.join(svg_elements)}
+    </svg>
+    """
+    return base64.b64encode(svg_content.encode('utf-8')).decode("utf-8")
+
+# Generate the background
+lion_b64 = generate_random_bg_svg()
 sidebar_bg_img = f"url(\"data:image/svg+xml;base64,{lion_b64}\")"
+RANGERS_CREST_URL = "https://i-p.rmcdn.net/64f5b85fe6a06b0052c2bc23/4535847/image-fa9870a3-f7d2-4499-b21c-f56c8b56f5d6.png?e=webp&nll=true"
 
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #f4f4f4; color: #333333; }}
-    section[data-testid="stSidebar"] {{ background-color: #1b458f; background-image: {sidebar_bg_img}; background-repeat: repeat; background-size: 60px 60px; }}
+    
+    /* SIDEBAR WITH RANDOM LION PATTERN */
+    section[data-testid="stSidebar"] {{ 
+        background-color: #1b458f; 
+        background-image: {sidebar_bg_img}; 
+        background-repeat: repeat; 
+    }}
+    
     section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] li, section[data-testid="stSidebar"] .stMarkdown {{ color: #ffffff !important; }}
     
     /* MENU STYLING */
