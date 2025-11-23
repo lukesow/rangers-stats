@@ -60,6 +60,11 @@ DATA_FILE = "rangers_data.csv"
 def load_data():
     try:
         df = pd.read_csv(DATA_FILE)
+        
+        # --- CRITICAL FIX: CLEAN COLUMN NAMES ---
+        # This removes accidental spaces in CSV headers (e.g., "Tag Season " -> "Tag Season")
+        df.columns = df.columns.str.strip()
+        
         # Basic Date Construction
         df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
         df['Date'] = pd.to_datetime(df['DateStr'], errors='coerce')
@@ -77,7 +82,7 @@ def load_data():
         
         return df.sort_values('Date', ascending=False)
     except Exception as e:
-        # st.error(f"Error loading data: {e}") # Uncomment for debug
+        # Return empty DF on failure rather than crashing app
         return pd.DataFrame()
 
 def save_data(df_to_save):
@@ -117,7 +122,7 @@ def check_password():
 with st.sidebar.container():
     col_logo, col_txt = st.sidebar.columns([1, 3])
     with col_logo:
-        st.image("https://i-p.rmcdn.net/64f5b85fe6a06b0052c2bc23/4535847/image-049df452-3141-4388-a811-c8bea091e1af.png?e=webp&nll=true", width=60)
+        st.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=60)
     with col_txt:
         st.markdown("<h3 style='margin:0; padding-top:10px;'>IBROX<br>ANALYTICS</h3>", unsafe_allow_html=True)
 
@@ -145,16 +150,25 @@ s_sea = 'All Time'
 s_comp = 'All Competitions'
 
 if st.session_state['page'] != 'admin':
-    st.sidebar.markdown("<div class='filter-box'>", unsafe_allow_html=True)
-    st.sidebar.caption("GLOBAL FILTERS")
-    seasons = ['All Time'] + sorted(df['Tag Season'].unique().tolist(), reverse=True) if not df.empty else []
-    s_sea = st.sidebar.selectbox("Season", seasons)
-    comps = ['All Competitions'] + sorted(df['Competition'].unique().tolist()) if not df.empty else []
-    s_comp = st.sidebar.selectbox("Competition", comps)
-    st.sidebar.markdown("</div>", unsafe_allow_html=True)
-    
-    if s_sea != 'All Time': df_f = df_f[df_f['Tag Season'] == s_sea]
-    if s_comp != 'All Competitions': df_f = df_f[df_f['Competition'] == s_comp]
+    if not df.empty and 'Tag Season' in df.columns and 'Competition' in df.columns:
+        st.sidebar.markdown("<div class='filter-box'>", unsafe_allow_html=True)
+        st.sidebar.caption("GLOBAL FILTERS")
+        
+        # Ensure we drop NA values before sorting to avoid errors
+        seasons = ['All Time'] + sorted(df['Tag Season'].dropna().unique().tolist(), reverse=True)
+        s_sea = st.sidebar.selectbox("Season", seasons)
+        
+        comps = ['All Competitions'] + sorted(df['Competition'].dropna().unique().tolist())
+        s_comp = st.sidebar.selectbox("Competition", comps)
+        st.sidebar.markdown("</div>", unsafe_allow_html=True)
+        
+        if s_sea != 'All Time': 
+            df_f = df_f[df_f['Tag Season'] == s_sea]
+        if s_comp != 'All Competitions': 
+            df_f = df_f[df_f['Competition'] == s_comp]
+    else:
+        # Safe fallback if columns missing or DF empty
+        st.sidebar.warning("Data missing or invalid format.")
 
 # ==========================================
 # 4. MAIN AREA CONTENT
@@ -163,7 +177,7 @@ if st.session_state['page'] != 'admin':
 # --- SINGLE PLAYER DASHBOARD ---
 if st.session_state['page'] == 'single':
     if not players_list:
-        st.info("👋 Welcome! The database is empty. Go to the **Admin Panel** to add data.")
+        st.info("👋 Welcome! The database is empty or could not be loaded. Please check the Admin Panel or your CSV file.")
     else:
         # --- CONTROL BAR ---
         st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
@@ -258,35 +272,42 @@ if st.session_state['page'] == 'single':
                 
                 with col_trend:
                     st.markdown("##### 📈 Performance Timeline")
-                    p_df['IsWin'] = p_df['ResultCode'] == 'W'
-                    season_stats = p_df.groupby('Tag Season').agg(
-                        Games=('ResultCode', 'count'),
-                        Wins=('IsWin', 'sum')
-                    ).reset_index()
-                    season_stats['Win Rate'] = (season_stats['Wins'] / season_stats['Games']) * 100
-                    season_stats = season_stats.sort_values('Tag Season') 
-                    
-                    fig_trend = px.line(season_stats, x='Tag Season', y='Win Rate', markers=True, 
-                                        title="Win Rate % per Season",
-                                        color_discrete_sequence=['#1b458f'])
-                    fig_trend.update_layout(yaxis_range=[0, 100], height=350)
-                    st.plotly_chart(fig_trend, use_container_width=True)
+                    if 'Tag Season' in p_df.columns:
+                        p_df['IsWin'] = p_df['ResultCode'] == 'W'
+                        season_stats = p_df.groupby('Tag Season').agg(
+                            Games=('ResultCode', 'count'),
+                            Wins=('IsWin', 'sum')
+                        ).reset_index()
+                        season_stats['Win Rate'] = (season_stats['Wins'] / season_stats['Games']) * 100
+                        season_stats = season_stats.sort_values('Tag Season') 
+                        
+                        fig_trend = px.line(season_stats, x='Tag Season', y='Win Rate', markers=True, 
+                                            title="Win Rate % per Season",
+                                            color_discrete_sequence=['#1b458f'])
+                        fig_trend.update_layout(yaxis_range=[0, 100], height=350)
+                        st.plotly_chart(fig_trend, use_container_width=True)
+                    else:
+                        st.warning("Season data not available for timeline.")
 
                 with col_comp:
                     st.markdown("##### 🏆 By Competition")
-                    comp_stats = p_df.groupby('Competition').agg(
-                        Games=('ResultCode', 'count'),
-                        Wins=('IsWin', 'sum')
-                    ).reset_index()
-                    comp_stats['Win Rate'] = (comp_stats['Wins'] / comp_stats['Games']) * 100
-                    comp_stats = comp_stats.sort_values('Win Rate', ascending=True)
-                    
-                    fig_comp = px.bar(comp_stats, x='Win Rate', y='Competition', orientation='h', 
-                                      text='Games', title="Win Rate (Total Games)",
-                                      color_discrete_sequence=['#d61a21'])
-                    fig_comp.update_traces(texttemplate='%{text} games', textposition='inside')
-                    fig_comp.update_layout(xaxis_range=[0, 100], height=350)
-                    st.plotly_chart(fig_comp, use_container_width=True)
+                    if 'Competition' in p_df.columns:
+                        p_df['IsWin'] = p_df['ResultCode'] == 'W'
+                        comp_stats = p_df.groupby('Competition').agg(
+                            Games=('ResultCode', 'count'),
+                            Wins=('IsWin', 'sum')
+                        ).reset_index()
+                        comp_stats['Win Rate'] = (comp_stats['Wins'] / comp_stats['Games']) * 100
+                        comp_stats = comp_stats.sort_values('Win Rate', ascending=True)
+                        
+                        fig_comp = px.bar(comp_stats, x='Win Rate', y='Competition', orientation='h', 
+                                          text='Games', title="Win Rate (Total Games)",
+                                          color_discrete_sequence=['#d61a21'])
+                        fig_comp.update_traces(texttemplate='%{text} games', textposition='inside')
+                        fig_comp.update_layout(xaxis_range=[0, 100], height=350)
+                        st.plotly_chart(fig_comp, use_container_width=True)
+                    else:
+                        st.warning("Competition data not available.")
 
             # --- TAB 3: MATCH LOG ---
             with tab3:
@@ -426,9 +447,9 @@ elif st.session_state['page'] == 'admin':
             
             # Prepare Autocomplete Lists
             if not df.empty:
-                ex_opps = sorted(df['Opponent'].dropna().unique().tolist())
-                ex_comps = sorted(df['Competition'].dropna().unique().tolist())
-                ex_seas = sorted(df['Tag Season'].dropna().unique().tolist())
+                ex_opps = sorted(df['Opponent'].dropna().unique().tolist()) if 'Opponent' in df.columns else []
+                ex_comps = sorted(df['Competition'].dropna().unique().tolist()) if 'Competition' in df.columns else []
+                ex_seas = sorted(df['Tag Season'].dropna().unique().tolist()) if 'Tag Season' in df.columns else []
                 # New Fields Autocomplete
                 ex_venues = sorted(df['Venue'].dropna().unique().tolist()) if 'Venue' in df.columns else []
                 ex_managers = sorted(df['Manager'].dropna().unique().tolist()) if 'Manager' in df.columns else []
