@@ -107,7 +107,7 @@ def load_data():
         return df.sort_values('Date', ascending=False), None
         
     except FileNotFoundError:
-        return pd.DataFrame(), f"File '{DATA_FILE}' not found."
+        return pd.DataFrame(), f"File '{DATA_FILE}' not found. Please ensure the CSV is uploaded."
     except Exception as e:
         return pd.DataFrame(), str(e)
 
@@ -224,7 +224,7 @@ if st.session_state['page'] == 'single':
         if load_error:
             with st.expander("Database Load Error Details"):
                 st.error(f"Error encountered while loading data: {load_error}")
-                st.caption("Please check your `rangers_data.csv` file. Common errors include missing date columns ('Day', 'Month', 'Year') or incorrect file encoding/path.")
+                st.caption("Please check your `rangers_data.csv` file. Common errors include missing the file itself, or missing date columns ('Day', 'Month', 'Year').")
     else:
         # --- CONTROL BAR ---
         st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
