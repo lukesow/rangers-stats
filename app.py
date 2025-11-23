@@ -17,6 +17,9 @@ st.set_page_config(
 )
 
 # --- ASSETS ---
+# UPDATED: New Crest URL
+RANGERS_CREST_URL = "https://i-p.rmcdn.net/64f5b85fe6a06b0052c2bc23/4535847/image-fa9870a3-f7d2-4499-b21c-f56c8b56f5d6.png?e=webp&nll=true"
+
 lion_svg_path = "M45.5 10.2c-1.3.6-3.1 2.4-3.1 3.1 0 .2.4.6.9.8 1.1.5 1.3 1.8.3 2.4-1.8 1.1-1.1 3.3.9 2.8 1.3-.3 2.2.4 1.8 1.5-.3.8-.2 1.3.4 1.3.5 0 1.1.9 1.3 2 .4 2.2 2.9 2.6 3.3.6.2-1.1.9-1.8 1.8-1.8 1.3 0 1.5.4.9 1.8-.9 1.8-.2 2.2 2.9 1.5 2.4-.5 2.6-.5 3.5.7.6.7 1.5 1.1 2.4.9 2.4-.5 3.5 1.3 1.3 2.2-1.3.5-1.1 1.5.4 1.5 1.3 0 2.2.7 2.2 1.8 0 1.5-.7 1.8-2.6 1.1-2.9-1.1-3.3-1.1-3.3.2 0 .7-1.3 2.2-2.9 3.3-3.1 2.2-3.1 2.4-1.3 4.6.9 1.1 1.3 2.4.9 2.9-.9 1.1-1.1 3.5-.2 3.5.4 0 .7.9.7 2 0 1.5.7 2 2.9 2 2.4 0 2.9.4 2.9 2.6 0 1.5-.4 2.4-1.3 2.4-1.5 0-1.5.2 0 1.8 2.2 2.2 1.5 3.7-1.8 3.7-2.2 0-2.4.2-1.1 1.3 2.6 2.4 2.6 2.4 0 1.1-1.3-.7-2.6-.5-2.9.4-.4 1.8-.2 2.9.4 2.4 2.4 1.8 3.7-1.5 3.5-1.5-.1-2.4-.7-2.4-1.5 0-.7-.7-1.1-1.8-1.1-1.5 0-2-.7-1.8-2.6.2-1.5-.2-2.6-.9-2.6-.7 0-1.3-.7-1.3-1.5 0-1.3-.9-1.5-4.4-1.3-4.4.2-4.6.2-3.3-1.1 1.8-1.8 1.3-2.4-2.2-2.4-3.1 0-3.5.2-3.1 1.5.4 1.1.2 1.8-.7 1.8-1.3 0-1.5.7-1.1 2.4.5 2.2.5 2.6-.2 2.6-.5 0-1.5.9-2.2 2-.7 1.1-1.3 1.8-1.3 1.5 0-.2.7-1.1 1.5-2 .9-1.1 1.5-2.2 1.5-2.6 0-.4-.9-1.3-2-2-2.2-1.3-2-1.5 1.1-1.5 1.8 0 3.3-.4 3.3-.9 0-.5-.9-2-2-3.3-1.8-2.2-1.8-2.4.2-2.4 1.3 0 2.4-.7 2.4-1.5 0-.9.7-1.5 1.5-1.5.9 0 1.5-.7 1.5-1.5 0-1.1-.9-1.5-2.6-1.3-2.4.2-3.1-.2-3.1-1.5 0-1.1-1.3-2.6-3.1-3.7-3.5-2.2-5.7-2-5.7.6 0 .7-.7 1.3-1.5 1.3-.9 0-2-.7-2.6-1.5-.7-1.1-1.1-1.1-1.5-.2-.4.7-1.5.9-2.6.4-1.8-.7-1.8-.9.2-1.1 1.5-.2 2.6-.2 2.6.2 0 .4-.9 1.5-2 2.4-1.5 1.3-2 1.3-2 0 0-1.1.9-2.2 2.2-2.6 1.1-.4 2-.4 2 0 0 .4.7.4 1.5 0 .9-.4 1.3-.4 1.1 0-.2.4-.4 1.8-.4 3.1 0 1.3.4 2.4.9 2.4.4 0 .7-.4.7-.9 0-.4-1.1-1.5-2.4-2.4-2-1.3-2.2-1.8-1.3-2.2.7-.4.9-.9.7-1.3-.4-.7 1.5-2.6 2.6-2.6.9 0 1.1-.4.7-.9-.7-.9 0-1.5 1.5-1.5 1.3 0 1.5-.2.9-.9-.4-.4-.2-1.1.4-1.5.7-.4.9-1.3.4-2z"
 lion_svg = f"<svg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'><path d='{lion_svg_path}' fill='#ffffff' opacity='0.08'/></svg>"
 lion_b64 = base64.b64encode(lion_svg.encode('utf-8')).decode("utf-8")
@@ -61,33 +64,49 @@ def load_data():
     try:
         df = pd.read_csv(DATA_FILE)
         
-        # --- CRITICAL FIX: CLEAN COLUMN NAMES ---
-        # This removes accidental spaces in CSV headers (e.g., "Tag Season " -> "Tag Season")
+        # 1. STRIP HEADERS (Critical for new CSVs)
         df.columns = df.columns.str.strip()
         
-        # Basic Date Construction
-        df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
-        df['Date'] = pd.to_datetime(df['DateStr'], errors='coerce')
+        # 2. SAFE DATE HANDLING
+        # Ensure Day/Month/Year are numeric, coercing errors to 0/NaN
+        for c in ['Day', 'Month', 'Year']:
+            if c in df.columns:
+                df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).astype(int)
         
-        # Result & Score Cleaning
-        df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
+        # Construct date string only if columns exist
+        if all(x in df.columns for x in ['Day', 'Month', 'Year']):
+            df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
+            df['Date'] = pd.to_datetime(df['DateStr'], format="%d-%m-%Y", errors='coerce')
+        else:
+            # Fallback if individual columns missing but maybe a 'Date' column exists?
+            # For now, assume user format.
+            st.error("CSV Missing 'Day', 'Month', or 'Year' columns.")
+            return pd.DataFrame()
+
+        # 3. CLEAN RESULTS
+        if 'Win/Lose/Draw' in df.columns:
+            df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
+        else:
+            df['ResultCode'] = '?' # Fallback
+
         if 'Score (Rangers First)' in df.columns:
             df['Score (Rangers First)'] = df['Score (Rangers First)'].astype(str)
             
-        # Clean Player Columns
+        # 4. CLEAN PLAYERS (R1...R22)
         cols_to_clean = [f'R{i}' for i in range(1, 23)]
         for col in cols_to_clean:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.strip().replace('nan', None).replace('None', None)
         
         return df.sort_values('Date', ascending=False)
+        
     except Exception as e:
-        # Return empty DF on failure rather than crashing app
+        # SHOW ERROR IN UI FOR DEBUGGING
+        st.error(f"⚠️ Error loading CSV: {e}")
         return pd.DataFrame()
 
 def save_data(df_to_save):
     try:
-        # Remove calculated columns before saving to keep CSV clean
         cols_drop = ['DateStr', 'Date', 'ResultCode']
         df_c = df_to_save.drop(columns=[c for c in cols_drop if c in df_to_save.columns])
         df_c.to_csv(DATA_FILE, index=False)
@@ -122,7 +141,7 @@ def check_password():
 with st.sidebar.container():
     col_logo, col_txt = st.sidebar.columns([1, 3])
     with col_logo:
-        st.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=60)
+        st.image(RANGERS_CREST_URL, width=60)
     with col_txt:
         st.markdown("<h3 style='margin:0; padding-top:10px;'>IBROX<br>ANALYTICS</h3>", unsafe_allow_html=True)
 
@@ -154,7 +173,6 @@ if st.session_state['page'] != 'admin':
         st.sidebar.markdown("<div class='filter-box'>", unsafe_allow_html=True)
         st.sidebar.caption("GLOBAL FILTERS")
         
-        # Ensure we drop NA values before sorting to avoid errors
         seasons = ['All Time'] + sorted(df['Tag Season'].dropna().unique().tolist(), reverse=True)
         s_sea = st.sidebar.selectbox("Season", seasons)
         
@@ -167,8 +185,8 @@ if st.session_state['page'] != 'admin':
         if s_comp != 'All Competitions': 
             df_f = df_f[df_f['Competition'] == s_comp]
     else:
-        # Safe fallback if columns missing or DF empty
-        st.sidebar.warning("Data missing or invalid format.")
+        if df.empty:
+            st.sidebar.warning("Data not loaded.")
 
 # ==========================================
 # 4. MAIN AREA CONTENT
@@ -177,7 +195,7 @@ if st.session_state['page'] != 'admin':
 # --- SINGLE PLAYER DASHBOARD ---
 if st.session_state['page'] == 'single':
     if not players_list:
-        st.info("👋 Welcome! The database is empty or could not be loaded. Please check the Admin Panel or your CSV file.")
+        st.info("👋 Welcome! The database is empty or CSV format is incorrect. Please check the **Admin Panel** for load errors.")
     else:
         # --- CONTROL BAR ---
         st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
@@ -206,7 +224,7 @@ if st.session_state['page'] == 'single':
             total = starts + subs
             win_rate = (wins/total*100) if total else 0
             
-            # PARTNERSHIP CALCULATION (For header summary)
+            # PARTNERSHIP CALCULATION
             best_partner_txt = "No partnership data yet"
             if starts > 0:
                 start_games = p_df[p_df['Role'] == 'Starter']
@@ -222,11 +240,9 @@ if st.session_state['page'] == 'single':
                     tm_df = pd.DataFrame(teammate_data)
                     tm_stats = tm_df.groupby('Teammate').agg(Apps=('Result', 'count'), Wins=('Result', lambda x: (x == 'W').sum())).reset_index()
                     tm_stats['WinRate'] = tm_stats['Wins'] / tm_stats['Apps'] * 100
-                    # Filter for meaningful partnerships (>5 games) unless none exist
                     meaningful = tm_stats[tm_stats['Apps'] >= 5]
                     if meaningful.empty: meaningful = tm_stats
                     
-                    # Get Best (Highest Win Rate, then Most Apps)
                     if not meaningful.empty:
                         best = meaningful.sort_values(['WinRate', 'Apps'], ascending=[False, False]).iloc[0]
                         best_partner_txt = f"{best['Teammate']} ({best['Apps']} gms, {best['WinRate']:.1f}% win rate)"
@@ -266,7 +282,7 @@ if st.session_state['page'] == 'single':
                     fig2.update_layout(height=300, bargap=0.2, margin=dict(t=20,b=0,l=0,r=0))
                     st.plotly_chart(fig2, use_container_width=True)
 
-            # --- TAB 2: PERFORMANCE (NEW) ---
+            # --- TAB 2: PERFORMANCE ---
             with tab2:
                 col_trend, col_comp = st.columns(2)
                 
@@ -274,46 +290,32 @@ if st.session_state['page'] == 'single':
                     st.markdown("##### 📈 Performance Timeline")
                     if 'Tag Season' in p_df.columns:
                         p_df['IsWin'] = p_df['ResultCode'] == 'W'
-                        season_stats = p_df.groupby('Tag Season').agg(
-                            Games=('ResultCode', 'count'),
-                            Wins=('IsWin', 'sum')
-                        ).reset_index()
+                        season_stats = p_df.groupby('Tag Season').agg(Games=('ResultCode', 'count'), Wins=('IsWin', 'sum')).reset_index()
                         season_stats['Win Rate'] = (season_stats['Wins'] / season_stats['Games']) * 100
                         season_stats = season_stats.sort_values('Tag Season') 
-                        
-                        fig_trend = px.line(season_stats, x='Tag Season', y='Win Rate', markers=True, 
-                                            title="Win Rate % per Season",
-                                            color_discrete_sequence=['#1b458f'])
+                        fig_trend = px.line(season_stats, x='Tag Season', y='Win Rate', markers=True, color_discrete_sequence=['#1b458f'])
                         fig_trend.update_layout(yaxis_range=[0, 100], height=350)
                         st.plotly_chart(fig_trend, use_container_width=True)
-                    else:
-                        st.warning("Season data not available for timeline.")
+                    else: st.warning("No Season Data")
 
                 with col_comp:
                     st.markdown("##### 🏆 By Competition")
                     if 'Competition' in p_df.columns:
                         p_df['IsWin'] = p_df['ResultCode'] == 'W'
-                        comp_stats = p_df.groupby('Competition').agg(
-                            Games=('ResultCode', 'count'),
-                            Wins=('IsWin', 'sum')
-                        ).reset_index()
+                        comp_stats = p_df.groupby('Competition').agg(Games=('ResultCode', 'count'), Wins=('IsWin', 'sum')).reset_index()
                         comp_stats['Win Rate'] = (comp_stats['Wins'] / comp_stats['Games']) * 100
                         comp_stats = comp_stats.sort_values('Win Rate', ascending=True)
-                        
-                        fig_comp = px.bar(comp_stats, x='Win Rate', y='Competition', orientation='h', 
-                                          text='Games', title="Win Rate (Total Games)",
-                                          color_discrete_sequence=['#d61a21'])
+                        fig_comp = px.bar(comp_stats, x='Win Rate', y='Competition', orientation='h', text='Games', color_discrete_sequence=['#d61a21'])
                         fig_comp.update_traces(texttemplate='%{text} games', textposition='inside')
                         fig_comp.update_layout(xaxis_range=[0, 100], height=350)
                         st.plotly_chart(fig_comp, use_container_width=True)
-                    else:
-                        st.warning("Competition data not available.")
+                    else: st.warning("No Competition Data")
 
             # --- TAB 3: MATCH LOG ---
             with tab3:
-                # Updated columns to include Venue, Home/Away etc. if present
-                cols = ['Date', 'Opponent', 'Competition', 'Venue', 'Home/Away/Neutral', 'Score (Rangers First)', 'Win/Lose/Draw', 'Manager', 'Role']
-                v_cols = [c for c in cols if c in p_df.columns]
+                # Try to show as many useful columns as possible from the new CSV schema
+                potential_cols = ['Date', 'Opponent', 'Competition', 'Venue', 'Home/Away/Neutral', 'Score (Rangers First)', 'Win/Lose/Draw', 'Manager', 'Role']
+                v_cols = [c for c in potential_cols if c in p_df.columns]
                 st.dataframe(
                     p_df[v_cols], 
                     use_container_width=True, 
@@ -339,9 +341,7 @@ if st.session_state['page'] == 'single':
                             "WinRate": st.column_config.ProgressColumn("Chemistry (Win %)", format="%.1f%%", min_value=0, max_value=100)
                         }
                     )
-                else:
-                    st.info("No data available.")
-
+                else: st.info("No data available.")
         else:
             st.warning(f"No data found for **{sel_p}** with current filters.")
 
@@ -425,7 +425,6 @@ elif st.session_state['page'] == 'h2h':
 
             st.markdown("---")
             st.subheader("🔗 Partnership Analysis")
-            
             c_chem1, c_chem2 = st.columns(2)
             c_chem1.metric("Games Started Together", chem_games)
             c_chem2.metric("Win Rate as Duo", f"{chem_rate:.1f}%")
@@ -445,19 +444,16 @@ elif st.session_state['page'] == 'admin':
             st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
             st.subheader("New Match Record")
             
-            # Prepare Autocomplete Lists
             if not df.empty:
                 ex_opps = sorted(df['Opponent'].dropna().unique().tolist()) if 'Opponent' in df.columns else []
                 ex_comps = sorted(df['Competition'].dropna().unique().tolist()) if 'Competition' in df.columns else []
                 ex_seas = sorted(df['Tag Season'].dropna().unique().tolist()) if 'Tag Season' in df.columns else []
-                # New Fields Autocomplete
                 ex_venues = sorted(df['Venue'].dropna().unique().tolist()) if 'Venue' in df.columns else []
                 ex_managers = sorted(df['Manager'].dropna().unique().tolist()) if 'Manager' in df.columns else []
                 ex_referees = sorted(df['Referee:'].dropna().unique().tolist()) if 'Referee:' in df.columns else []
             else:
                 ex_opps, ex_comps, ex_seas, ex_venues, ex_managers, ex_referees = [], [], [], [], [], []
             
-            # === ROW 1: Basic Info ===
             c1, c2, c3 = st.columns(3)
             inp_date = c1.date_input("Date", datetime.today())
             
@@ -467,36 +463,27 @@ elif st.session_state['page'] == 'admin':
             comp_sel = c3.selectbox("Competition", ["Select..."] + ex_comps + ["➕ Add New"])
             inp_comp = c3.text_input("New Competition Name") if comp_sel == "➕ Add New" else (comp_sel if comp_sel != "Select..." else "")
 
-            # === ROW 2: Details (New Fields) ===
             c4, c5, c6 = st.columns(3)
             inp_round = c4.text_input("Round", placeholder="e.g. Final")
-            
             ven_sel = c5.selectbox("Venue", ["Select..."] + ex_venues + ["➕ Add New"])
             inp_venue = c5.text_input("New Venue") if ven_sel == "➕ Add New" else (ven_sel if ven_sel != "Select..." else "")
-            
             inp_ha = c6.selectbox("Home/Away/Neutral", ["Home", "Away", "Neutral"])
 
-            # === ROW 3: People & Stats ===
             c7, c8, c9 = st.columns(3)
-            
             ref_sel = c7.selectbox("Referee", ["Select..."] + ex_referees + ["➕ Add New"])
             inp_ref = c7.text_input("New Referee") if ref_sel == "➕ Add New" else (ref_sel if ref_sel != "Select..." else "")
-            
             inp_crowd = c8.text_input("Crowd", placeholder="e.g. 50000")
-            
             man_sel = c9.selectbox("Manager", ["Select..."] + ex_managers + ["➕ Add New"])
             inp_man = c9.text_input("New Manager") if man_sel == "➕ Add New" else (man_sel if man_sel != "Select..." else "")
 
-            # === ROW 4: Result ===
             c10, c11, c12 = st.columns(3)
             inp_score = c10.text_input("Score (Rangers-Opp)", placeholder="e.g. 3-1")
             inp_res = c11.selectbox("Result", ["Win", "Draw", "Lose"])
-            
             sea_sel = c12.selectbox("Season", ["Select..."] + ex_seas + ["➕ Add New"])
             inp_sea = c12.text_input("New Season (e.g. 25/26)") if sea_sel == "➕ Add New" else (sea_sel if sea_sel != "Select..." else "")
             
             st.markdown("---")
-            with st.expander("🆕 Register New Player (If not in list)"):
+            with st.expander("🆕 Register New Player"):
                 np_col1, np_col2 = st.columns([3,1])
                 new_p = np_col1.text_input("Name", placeholder="e.g. J. Butland", label_visibility="collapsed")
                 if np_col2.button("Add Player"):
@@ -509,38 +496,24 @@ elif st.session_state['page'] == 'admin':
             selections = {}
             with sc1:
                 st.caption("Starters (1-11)")
-                for i in range(1, 12):
-                    selections[f"R{i}"] = st.selectbox(f"R{i}", [""] + players_list, key=f"r{i}")
+                for i in range(1, 12): selections[f"R{i}"] = st.selectbox(f"R{i}", [""] + players_list, key=f"r{i}")
             with sc2:
                 st.caption("Subs (12-22)")
-                for i in range(12, 23):
-                    selections[f"R{i}"] = st.selectbox(f"R{i}", [""] + players_list, key=f"r{i}")
+                for i in range(12, 23): selections[f"R{i}"] = st.selectbox(f"R{i}", [""] + players_list, key=f"r{i}")
             
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("💾 Save Match", type="primary", use_container_width=True):
-                if not inp_opp or not inp_score or not inp_comp or not inp_sea:
-                    st.error("Please fill in all Match Details (Opponent, Score, Comp, Season).")
+                if not inp_opp or not inp_score:
+                    st.error("Missing Details")
                 else:
-                    # Updated Row Structure matching user's CSV
                     row = {
-                        'Title': f"{inp_opp} ({inp_ha[0]})", # Simple Auto-Title
-                        'Opponent': inp_opp, 
-                        'Competition': inp_comp,
-                        'Round': inp_round,
-                        'Venue': inp_venue,
-                        'Home/Away/Neutral': inp_ha,
-                        'Day': inp_date.day, 
-                        'Month': inp_date.month, 
-                        'Year': inp_date.year,
-                        'Tag Season': inp_sea,
-                        'Score (Rangers First)': inp_score, 
-                        'Win/Lose/Draw': inp_res,
-                        'Referee:': inp_ref,
-                        'Crowd': inp_crowd,
-                        'Manager': inp_man
+                        'Title': f"{inp_opp} ({inp_ha[0]})", 'Opponent': inp_opp, 'Competition': inp_comp,
+                        'Round': inp_round, 'Venue': inp_venue, 'Home/Away/Neutral': inp_ha,
+                        'Day': inp_date.day, 'Month': inp_date.month, 'Year': inp_date.year,
+                        'Tag Season': inp_sea, 'Score (Rangers First)': inp_score, 
+                        'Win/Lose/Draw': inp_res, 'Referee:': inp_ref, 'Crowd': inp_crowd, 'Manager': inp_man
                     }
                     for k,v in selections.items(): row[k] = v if v else None
-                    
                     df_cur = pd.read_csv(DATA_FILE)
                     df_final = pd.concat([df_cur, pd.DataFrame([row])], ignore_index=True)
                     if save_data(df_final):
@@ -559,7 +532,6 @@ elif st.session_state['page'] == 'admin':
                     ed1, ed2 = st.columns(2)
                     new_d = ed1.date_input("Correct Date", orig['Date'])
                     new_o = ed2.text_input("Correct Opponent", orig['Opponent'])
-                    
                     if st.button("Update Info"):
                         raw = pd.read_csv(DATA_FILE)
                         m = (raw['Day']==orig['Day']) & (raw['Month']==orig['Month']) & (raw['Year']==orig['Year']) & (raw['Opponent']==orig['Opponent'])
