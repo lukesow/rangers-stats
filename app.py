@@ -60,21 +60,29 @@ DATA_FILE = "rangers_data.csv"
 def load_data():
     try:
         df = pd.read_csv(DATA_FILE)
+        # Basic Date Construction
         df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
         df['Date'] = pd.to_datetime(df['DateStr'], errors='coerce')
+        
+        # Result & Score Cleaning
         df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
         if 'Score (Rangers First)' in df.columns:
             df['Score (Rangers First)'] = df['Score (Rangers First)'].astype(str)
+            
+        # Clean Player Columns
         cols_to_clean = [f'R{i}' for i in range(1, 23)]
         for col in cols_to_clean:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.strip().replace('nan', None).replace('None', None)
+        
         return df.sort_values('Date', ascending=False)
-    except:
+    except Exception as e:
+        # st.error(f"Error loading data: {e}") # Uncomment for debug
         return pd.DataFrame()
 
 def save_data(df_to_save):
     try:
+        # Remove calculated columns before saving to keep CSV clean
         cols_drop = ['DateStr', 'Date', 'ResultCode']
         df_c = df_to_save.drop(columns=[c for c in cols_drop if c in df_to_save.columns])
         df_c.to_csv(DATA_FILE, index=False)
@@ -109,7 +117,7 @@ def check_password():
 with st.sidebar.container():
     col_logo, col_txt = st.sidebar.columns([1, 3])
     with col_logo:
-        st.image("https://upload.wikimedia.org/wikipedia/en/4/43/Rangers_FC.svg", width=60)
+        st.image("https://i-p.rmcdn.net/64f5b85fe6a06b0052c2bc23/4535847/image-049df452-3141-4388-a811-c8bea091e1af.png?e=webp&nll=true", width=60)
     with col_txt:
         st.markdown("<h3 style='margin:0; padding-top:10px;'>IBROX<br>ANALYTICS</h3>", unsafe_allow_html=True)
 
@@ -250,15 +258,12 @@ if st.session_state['page'] == 'single':
                 
                 with col_trend:
                     st.markdown("##### 📈 Performance Timeline")
-                    # Group by Season
                     p_df['IsWin'] = p_df['ResultCode'] == 'W'
                     season_stats = p_df.groupby('Tag Season').agg(
                         Games=('ResultCode', 'count'),
                         Wins=('IsWin', 'sum')
                     ).reset_index()
                     season_stats['Win Rate'] = (season_stats['Wins'] / season_stats['Games']) * 100
-                    # Sort by Season (assuming standard format YYYY/YY, simple sort works roughly, or use Date min)
-                    # Better: Sort by 'Games' count or explicit Season order if known? Let's use alphabetical for now as 2024/25 > 2023/24
                     season_stats = season_stats.sort_values('Tag Season') 
                     
                     fig_trend = px.line(season_stats, x='Tag Season', y='Win Rate', markers=True, 
@@ -285,7 +290,8 @@ if st.session_state['page'] == 'single':
 
             # --- TAB 3: MATCH LOG ---
             with tab3:
-                cols = ['Date', 'Opponent', 'Competition', 'Score (Rangers First)', 'Win/Lose/Draw', 'Role']
+                # Updated columns to include Venue, Home/Away etc. if present
+                cols = ['Date', 'Opponent', 'Competition', 'Venue', 'Home/Away/Neutral', 'Score (Rangers First)', 'Win/Lose/Draw', 'Manager', 'Role']
                 v_cols = [c for c in cols if c in p_df.columns]
                 st.dataframe(
                     p_df[v_cols], 
@@ -300,7 +306,6 @@ if st.session_state['page'] == 'single':
             # --- TAB 4: CONNECTIONS ---
             with tab4:
                 st.markdown("##### Partnership Ranking (Starts Together)")
-                # We calculated meaningful stats above for the summary, let's re-display the full table here
                 if starts > 0 and 'tm_stats' in locals():
                     st.dataframe(
                         tm_stats,
@@ -419,10 +424,19 @@ elif st.session_state['page'] == 'admin':
             st.markdown("<div class='control-bar'>", unsafe_allow_html=True)
             st.subheader("New Match Record")
             
-            ex_opps = sorted(df['Opponent'].unique().tolist()) if not df.empty else []
-            ex_comps = sorted(df['Competition'].unique().tolist()) if not df.empty else []
-            ex_seas = sorted(df['Tag Season'].unique().tolist()) if not df.empty else []
+            # Prepare Autocomplete Lists
+            if not df.empty:
+                ex_opps = sorted(df['Opponent'].dropna().unique().tolist())
+                ex_comps = sorted(df['Competition'].dropna().unique().tolist())
+                ex_seas = sorted(df['Tag Season'].dropna().unique().tolist())
+                # New Fields Autocomplete
+                ex_venues = sorted(df['Venue'].dropna().unique().tolist()) if 'Venue' in df.columns else []
+                ex_managers = sorted(df['Manager'].dropna().unique().tolist()) if 'Manager' in df.columns else []
+                ex_referees = sorted(df['Referee:'].dropna().unique().tolist()) if 'Referee:' in df.columns else []
+            else:
+                ex_opps, ex_comps, ex_seas, ex_venues, ex_managers, ex_referees = [], [], [], [], [], []
             
+            # === ROW 1: Basic Info ===
             c1, c2, c3 = st.columns(3)
             inp_date = c1.date_input("Date", datetime.today())
             
@@ -432,11 +446,33 @@ elif st.session_state['page'] == 'admin':
             comp_sel = c3.selectbox("Competition", ["Select..."] + ex_comps + ["➕ Add New"])
             inp_comp = c3.text_input("New Competition Name") if comp_sel == "➕ Add New" else (comp_sel if comp_sel != "Select..." else "")
 
+            # === ROW 2: Details (New Fields) ===
             c4, c5, c6 = st.columns(3)
-            inp_score = c4.text_input("Score (Rangers-Opp)", placeholder="e.g. 3-1")
-            inp_res = c5.selectbox("Result", ["Win", "Draw", "Lose"])
-            sea_sel = c6.selectbox("Season", ["Select..."] + ex_seas + ["➕ Add New"])
-            inp_sea = c6.text_input("New Season (e.g. 25/26)") if sea_sel == "➕ Add New" else (sea_sel if sea_sel != "Select..." else "")
+            inp_round = c4.text_input("Round", placeholder="e.g. Final")
+            
+            ven_sel = c5.selectbox("Venue", ["Select..."] + ex_venues + ["➕ Add New"])
+            inp_venue = c5.text_input("New Venue") if ven_sel == "➕ Add New" else (ven_sel if ven_sel != "Select..." else "")
+            
+            inp_ha = c6.selectbox("Home/Away/Neutral", ["Home", "Away", "Neutral"])
+
+            # === ROW 3: People & Stats ===
+            c7, c8, c9 = st.columns(3)
+            
+            ref_sel = c7.selectbox("Referee", ["Select..."] + ex_referees + ["➕ Add New"])
+            inp_ref = c7.text_input("New Referee") if ref_sel == "➕ Add New" else (ref_sel if ref_sel != "Select..." else "")
+            
+            inp_crowd = c8.text_input("Crowd", placeholder="e.g. 50000")
+            
+            man_sel = c9.selectbox("Manager", ["Select..."] + ex_managers + ["➕ Add New"])
+            inp_man = c9.text_input("New Manager") if man_sel == "➕ Add New" else (man_sel if man_sel != "Select..." else "")
+
+            # === ROW 4: Result ===
+            c10, c11, c12 = st.columns(3)
+            inp_score = c10.text_input("Score (Rangers-Opp)", placeholder="e.g. 3-1")
+            inp_res = c11.selectbox("Result", ["Win", "Draw", "Lose"])
+            
+            sea_sel = c12.selectbox("Season", ["Select..."] + ex_seas + ["➕ Add New"])
+            inp_sea = c12.text_input("New Season (e.g. 25/26)") if sea_sel == "➕ Add New" else (sea_sel if sea_sel != "Select..." else "")
             
             st.markdown("---")
             with st.expander("🆕 Register New Player (If not in list)"):
@@ -464,10 +500,23 @@ elif st.session_state['page'] == 'admin':
                 if not inp_opp or not inp_score or not inp_comp or not inp_sea:
                     st.error("Please fill in all Match Details (Opponent, Score, Comp, Season).")
                 else:
+                    # Updated Row Structure matching user's CSV
                     row = {
-                        'Day': inp_date.day, 'Month': inp_date.month, 'Year': inp_date.year,
-                        'Opponent': inp_opp, 'Competition': inp_comp, 
-                        'Score (Rangers First)': inp_score, 'Win/Lose/Draw': inp_res, 'Tag Season': inp_sea
+                        'Title': f"{inp_opp} ({inp_ha[0]})", # Simple Auto-Title
+                        'Opponent': inp_opp, 
+                        'Competition': inp_comp,
+                        'Round': inp_round,
+                        'Venue': inp_venue,
+                        'Home/Away/Neutral': inp_ha,
+                        'Day': inp_date.day, 
+                        'Month': inp_date.month, 
+                        'Year': inp_date.year,
+                        'Tag Season': inp_sea,
+                        'Score (Rangers First)': inp_score, 
+                        'Win/Lose/Draw': inp_res,
+                        'Referee:': inp_ref,
+                        'Crowd': inp_crowd,
+                        'Manager': inp_man
                     }
                     for k,v in selections.items(): row[k] = v if v else None
                     
