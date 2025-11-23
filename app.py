@@ -59,10 +59,17 @@ st.markdown(f"""
 # ==========================================
 DATA_FILE = "rangers_data.csv"
 
+# Helper to read CSV safely with different encodings
+def read_csv_safe(filepath):
+    try:
+        return pd.read_csv(filepath, encoding='utf-8')
+    except UnicodeDecodeError:
+        return pd.read_csv(filepath, encoding='cp1252') # Fallback for Excel-saved CSVs
+
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv(DATA_FILE)
+        df = read_csv_safe(DATA_FILE)
         
         # 1. STRIP HEADERS (Critical for new CSVs)
         df.columns = df.columns.str.strip()
@@ -78,8 +85,6 @@ def load_data():
             df['DateStr'] = df['Day'].astype(str) + "-" + df['Month'].astype(str) + "-" + df['Year'].astype(str)
             df['Date'] = pd.to_datetime(df['DateStr'], format="%d-%m-%Y", errors='coerce')
         else:
-            # Fallback if individual columns missing but maybe a 'Date' column exists?
-            # For now, assume user format.
             st.error("CSV Missing 'Day', 'Month', or 'Year' columns.")
             return pd.DataFrame()
 
@@ -87,7 +92,7 @@ def load_data():
         if 'Win/Lose/Draw' in df.columns:
             df['ResultCode'] = df['Win/Lose/Draw'].astype(str).str[0].str.upper()
         else:
-            df['ResultCode'] = '?' # Fallback
+            df['ResultCode'] = '?' 
 
         if 'Score (Rangers First)' in df.columns:
             df['Score (Rangers First)'] = df['Score (Rangers First)'].astype(str)
@@ -101,7 +106,6 @@ def load_data():
         return df.sort_values('Date', ascending=False)
         
     except Exception as e:
-        # SHOW ERROR IN UI FOR DEBUGGING
         st.error(f"⚠️ Error loading CSV: {e}")
         return pd.DataFrame()
 
@@ -313,7 +317,6 @@ if st.session_state['page'] == 'single':
 
             # --- TAB 3: MATCH LOG ---
             with tab3:
-                # Try to show as many useful columns as possible from the new CSV schema
                 potential_cols = ['Date', 'Opponent', 'Competition', 'Venue', 'Home/Away/Neutral', 'Score (Rangers First)', 'Win/Lose/Draw', 'Manager', 'Role']
                 v_cols = [c for c in potential_cols if c in p_df.columns]
                 st.dataframe(
@@ -514,7 +517,7 @@ elif st.session_state['page'] == 'admin':
                         'Win/Lose/Draw': inp_res, 'Referee:': inp_ref, 'Crowd': inp_crowd, 'Manager': inp_man
                     }
                     for k,v in selections.items(): row[k] = v if v else None
-                    df_cur = pd.read_csv(DATA_FILE)
+                    df_cur = read_csv_safe(DATA_FILE)
                     df_final = pd.concat([df_cur, pd.DataFrame([row])], ignore_index=True)
                     if save_data(df_final):
                         st.success("Match Saved!")
@@ -533,7 +536,7 @@ elif st.session_state['page'] == 'admin':
                     new_d = ed1.date_input("Correct Date", orig['Date'])
                     new_o = ed2.text_input("Correct Opponent", orig['Opponent'])
                     if st.button("Update Info"):
-                        raw = pd.read_csv(DATA_FILE)
+                        raw = read_csv_safe(DATA_FILE)
                         m = (raw['Day']==orig['Day']) & (raw['Month']==orig['Month']) & (raw['Year']==orig['Year']) & (raw['Opponent']==orig['Opponent'])
                         if m.any():
                             idx = raw[m].index[0]
